@@ -45,10 +45,6 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-jdbc</artifactId>
     </dependency>
-    <!--    <dependency>-->
-    <!--      <groupId>org.springframework.boot</groupId>-->
-    <!--      <artifactId>spring-boot-starter-oauth2-client</artifactId>-->
-    <!--    </dependency>-->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-security</artifactId>
@@ -110,11 +106,6 @@
       <artifactId>spring-boot-testcontainers</artifactId>
       <scope>test</scope>
     </dependency>
-    <!--    <dependency>-->
-    <!--      <groupId>org.springframework.security</groupId>-->
-    <!--      <artifactId>spring-security-test</artifactId>-->
-    <!--      <scope>test</scope>-->
-    <!--    </dependency>-->
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>junit-jupiter</artifactId>
@@ -129,6 +120,7 @@
   </dependencies>
 
   <build>
+    <finalName>sbd</finalName>
     <plugins>
       <plugin>
         <groupId>io.github.git-commit-id</groupId>
@@ -231,45 +223,6 @@
       </plugin>
     </plugins>
   </build>
-
-<!--
-  <profiles>
-    <profile>
-      <id>with-ui</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>com.github.eirslett</groupId>
-            <artifactId>frontend-maven-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>npm install ui</id>
-                <goals>
-                  <goal>npm</goal>
-                </goals>
-                <configuration>
-                  <arguments>install</arguments>
-                  <workingDirectory>${project.basedir}/ui</workingDirectory>
-                </configuration>
-              </execution>
-              <execution>
-                <id>npm run build ui</id>
-                <goals>
-                  <goal>npm</goal>
-                </goals>
-                <phase>compile</phase>
-                <configuration>
-                  <arguments>run build</arguments>
-                  <workingDirectory>${project.basedir}/ui</workingDirectory>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
-  -->
 
   <profiles>
     <!-- On Windows npm is npm.cmd; override the default set in <properties> -->
