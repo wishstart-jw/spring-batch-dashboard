@@ -24,7 +24,9 @@ const httpClient = {
    * @returns The response data
    */
   async fetch<T>(url: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(url, options);
+    const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+    const resolvedUrl = url.startsWith('/') ? `${base}${url}` : url;
+    const response = await fetch(resolvedUrl, options);
     
     // Handle unauthorized access (401 error)
     if (response.status === 401) {

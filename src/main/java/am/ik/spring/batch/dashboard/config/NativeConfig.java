@@ -14,7 +14,6 @@ import am.ik.spring.batch.dashboard.job.JobInstancesParams;
 import am.ik.spring.batch.dashboard.job.JobParameter;
 import am.ik.spring.batch.dashboard.job.JobSpecificStatistics;
 import am.ik.spring.batch.dashboard.job.JobStatistics;
-import am.ik.spring.batch.dashboard.job.JobStatisticsMapper;
 import am.ik.spring.batch.dashboard.job.PageResponse;
 import am.ik.spring.batch.dashboard.job.StepExecutionContext;
 import am.ik.spring.batch.dashboard.job.StepExecutionDetail;
@@ -40,8 +39,7 @@ public class NativeConfig {
 					JobExecutionDetail.class, JobExecutionsParams.class, JobExecutionStats.class,
 					JobExecutionSummary.class, JobInstance.class, JobInstanceDetail.class, JobInstancesParams.class,
 					JobParameter.class, JobSpecificStatistics.class, JobStatistics.class, PageResponse.class,
-					StepExecutionContext.class, StepExecutionDetail.class, StepExecutionSummary.class,
-					JobStatisticsMapper.StatusCount.class)
+					StepExecutionContext.class, StepExecutionDetail.class, StepExecutionSummary.class)
 				.forEach(clazz -> reflection.registerType(clazz, MemberCategory.INVOKE_PUBLIC_METHODS,
 						MemberCategory.INVOKE_PUBLIC_CONSTRUCTORS));
 		}

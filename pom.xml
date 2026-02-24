@@ -12,6 +12,7 @@
   <groupId>am.ik.spring.batch</groupId>
   <artifactId>spring-batch-dashboard</artifactId>
   <version>0.0.1-SNAPSHOT</version>
+  <packaging>war</packaging>
   <name>spring-batch-dashboard</name>
   <description>spring-batch-dashboard</description>
   <url/>
@@ -28,7 +29,8 @@
     <url/>
   </scm>
   <properties>
-    <java.version>21</java.version>
+    <java.version>17</java.version>
+    <npm.executable>npm</npm.executable>
   </properties>
   <dependencies>
     <dependency>
@@ -57,14 +59,13 @@
       <version>0.1.3</version>
     </dependency>
     <dependency>
-      <groupId>cc.jilt</groupId>
-      <artifactId>jilt</artifactId>
-      <version>1.8.1</version>
-      <scope>provided</scope>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
+      <artifactId>spring-boot-starter-tomcat</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>io.micrometer</groupId>
@@ -87,9 +88,11 @@
       <artifactId>micrometer-registry-prometheus</artifactId>
       <scope>runtime</scope>
     </dependency>
+    <!-- Oracle JDBC driver (runtime). Ensure licensing compliance for your environment. -->
     <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ojdbc8</artifactId>
+      <version>21.12.0.0</version>
       <scope>runtime</scope>
     </dependency>
     <dependency>
@@ -117,9 +120,10 @@
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Use H2 for tests in Oracle compatibility mode -->
     <dependency>
-      <groupId>org.testcontainers</groupId>
-      <artifactId>postgresql</artifactId>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -138,11 +142,6 @@
             <path>
               <groupId>org.springframework.boot</groupId>
               <artifactId>spring-boot-configuration-processor</artifactId>
-            </path>
-            <path>
-              <groupId>cc.jilt</groupId>
-              <artifactId>jilt</artifactId>
-              <version>1.8.1</version>
             </path>
           </annotationProcessorPaths>
         </configuration>
@@ -201,7 +200,7 @@
           <nodeVersion>v22.15.0</nodeVersion>
         </configuration>
         <executions>
-          <execution>
+<!--          <execution>
             <id>install node and npm</id>
             <goals>
               <goal>install-node-and-npm</goal>
@@ -227,21 +226,108 @@
               <arguments>run lint</arguments>
               <workingDirectory>${project.basedir}/ui</workingDirectory>
             </configuration>
-          </execution>
-          <execution>
-            <id>npm run build ui</id>
-            <goals>
-              <goal>npm</goal>
-            </goals>
-            <phase>compile</phase>
-            <configuration>
-              <arguments>run build</arguments>
-              <workingDirectory>${project.basedir}/ui</workingDirectory>
-            </configuration>
-          </execution>
+          </execution> -->
         </executions>
       </plugin>
     </plugins>
   </build>
 
+<!--
+  <profiles>
+    <profile>
+      <id>with-ui</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.github.eirslett</groupId>
+            <artifactId>frontend-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>npm install ui</id>
+                <goals>
+                  <goal>npm</goal>
+                </goals>
+                <configuration>
+                  <arguments>install</arguments>
+                  <workingDirectory>${project.basedir}/ui</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>npm run build ui</id>
+                <goals>
+                  <goal>npm</goal>
+                </goals>
+                <phase>compile</phase>
+                <configuration>
+                  <arguments>run build</arguments>
+                  <workingDirectory>${project.basedir}/ui</workingDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+  -->
+
+  <profiles>
+    <!-- On Windows npm is npm.cmd; override the default set in <properties> -->
+    <profile>
+      <id>windows-npm</id>
+      <activation>
+        <os>
+          <family>windows</family>
+        </os>
+      </activation>
+      <properties>
+        <npm.executable>npm.cmd</npm.executable>
+      </properties>
+    </profile>
+
+    <!-- Activate with: mvn package -P with-ui -->
+    <profile>
+      <id>with-ui</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.5.0</version>
+            <executions>
+              <execution>
+                <id>npm install ui</id>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <phase>generate-resources</phase>
+                <configuration>
+                  <executable>${npm.executable}</executable>
+                  <arguments>
+                    <argument>install</argument>
+                  </arguments>
+                  <workingDirectory>${project.basedir}/ui</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>npm run build ui</id>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <phase>generate-resources</phase>
+                <configuration>
+                  <executable>${npm.executable}</executable>
+                  <arguments>
+                    <argument>run</argument>
+                    <argument>build</argument>
+                  </arguments>
+                  <workingDirectory>${project.basedir}/ui</workingDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

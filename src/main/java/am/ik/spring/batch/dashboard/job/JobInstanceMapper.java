@@ -1,5 +1,6 @@
 package am.ik.spring.batch.dashboard.job;
 
+import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -19,69 +20,74 @@ public class JobInstanceMapper {
 	public PageResponse<JobInstance> findJobInstances(JobInstancesParams params) {
 		Integer page = Objects.requireNonNullElse(params.page(), 0);
 		Integer size = Objects.requireNonNullElse(params.size(), 20);
+		int offset = page * size;
 		List<JobInstance> content = this.jdbcClient.sql("""
-				SELECT
-				    ji.JOB_INSTANCE_ID,
-				    ji.JOB_NAME,
-				    ji.JOB_KEY,
-				    ji.VERSION,
-				    je.JOB_EXECUTION_ID,
-				    je.START_TIME,
-				    je.END_TIME,
-				    je.STATUS
-				FROM
-				    BATCH_JOB_INSTANCE ji
-				    LEFT JOIN
+				SELECT *
+				FROM (
+				    SELECT
+				        ji.JOB_INSTANCE_ID,
+				        ji.JOB_NAME,
+				        ji.JOB_KEY,
+				        ji.VERSION,
+				        je.JOB_EXECUTION_ID,
+				        je.START_TIME,
+				        je.END_TIME,
+				        je.STATUS,
+				        ROW_NUMBER() OVER (ORDER BY ji.JOB_INSTANCE_ID DESC) as rn
+				    FROM
+				        BATCH_JOB_INSTANCE ji
+				        LEFT JOIN
+				            (
+				                SELECT
+				                    je1.*
+				                FROM
+				                    BATCH_JOB_EXECUTION je1
+				                    JOIN
+				                        (
+				                            SELECT
+				                                JOB_INSTANCE_ID,
+				                                MAX(JOB_EXECUTION_ID) as MAX_EXECUTION_ID
+				                            FROM
+				                                BATCH_JOB_EXECUTION
+				                            GROUP BY
+				                                JOB_INSTANCE_ID
+				                        ) je2
+				                    ON  je1.JOB_EXECUTION_ID = je2.MAX_EXECUTION_ID
+				            ) je
+				        ON  ji.JOB_INSTANCE_ID = je.JOB_INSTANCE_ID
+				    WHERE
 				        (
-				            -- Subquery to get the latest execution for each job instance
-				            SELECT
-				                je1.*
-				            FROM
-				                BATCH_JOB_EXECUTION je1
-				                JOIN
-				                    (
-				                        SELECT
-				                            JOB_INSTANCE_ID,
-				                            MAX(JOB_EXECUTION_ID) as MAX_EXECUTION_ID
-				                        FROM
-				                            BATCH_JOB_EXECUTION
-				                        GROUP BY
-				                            JOB_INSTANCE_ID
-				                    ) je2
-				                ON  je1.JOB_EXECUTION_ID = je2.MAX_EXECUTION_ID
-				        ) je
-				    ON  ji.JOB_INSTANCE_ID = je.JOB_INSTANCE_ID
-				WHERE
-				    (
-				        :jobName::VARCHAR IS NULL
-				    OR  ji.JOB_NAME = :jobName
-				    )
-				ORDER BY
-				    ji.JOB_INSTANCE_ID DESC
-				LIMIT :size OFFSET :page * :size
-				""")
-			.param("jobName", params.jobName())
-			.param("page", page)
-			.param("size", size)
-			.query((rs, rowNum) -> JobInstanceBuilder.jobInstance()
-				.jobInstanceId(rs.getLong("JOB_INSTANCE_ID"))
-				.jobName(rs.getString("JOB_NAME"))
-				.jobKey(rs.getString("JOB_KEY"))
-				.version(rs.getInt("VERSION"))
-				.latestExecution(JobExecutionSummaryBuilder.jobExecutionSummary()
-					.jobExecutionId(rs.getLong("JOB_EXECUTION_ID"))
-					.startTime(rs.getObject("START_TIME", LocalDateTime.class))
-					.endTime(rs.getObject("END_TIME", LocalDateTime.class))
-					.status(JobStatus.valueOf(rs.getString("STATUS")))
-					.build())
-				.build())
+				            :jobName IS NULL
+				        OR  ji.JOB_NAME = :jobName
+				        )
+				) sub
+				WHERE rn > %d AND rn <= %d
+				""".formatted(offset, offset + size))
+			.param("jobName", params.jobName(), Types.VARCHAR)
+			.<JobInstance>query((rs, rowNum) -> {
+				String statusStr = rs.getString("STATUS");
+				JobExecutionSummary latestExecution = statusStr == null ? null
+						: JobExecutionSummaryBuilder.jobExecutionSummary()
+							.jobExecutionId(rs.getLong("JOB_EXECUTION_ID"))
+							.startTime(rs.getObject("START_TIME", LocalDateTime.class))
+							.endTime(rs.getObject("END_TIME", LocalDateTime.class))
+							.status(JobStatus.valueOf(statusStr))
+							.build();
+				return JobInstanceBuilder.jobInstance()
+					.jobInstanceId(rs.getLong("JOB_INSTANCE_ID"))
+					.jobName(rs.getString("JOB_NAME"))
+					.jobKey(rs.getString("JOB_KEY"))
+					.version(rs.getInt("VERSION"))
+					.latestExecution(latestExecution)
+					.build();
+			})
 			.list();
 
 		long count = this.jdbcClient.sql("""
 				SELECT COUNT(*)
 				FROM BATCH_JOB_INSTANCE ji
-				WHERE (:jobName::VARCHAR IS NULL OR ji.JOB_NAME = :jobName)
-				""").param("jobName", params.jobName()).query(Long.class).single();
+				WHERE (:jobName IS NULL OR ji.JOB_NAME = :jobName)
+				""").param("jobName", params.jobName(), Types.VARCHAR).query(Long.class).single();
 
 		return PageResponseBuilder.<JobInstance>pageResponse()
 			.content(content)
@@ -116,7 +122,7 @@ public class JobInstanceMapper {
 				    ji.JOB_INSTANCE_ID = :jobInstanceId
 				""")
 			.param("jobInstanceId", jobInstanceId)
-			.query((rs, rowNum) -> JobInstanceDetailBuilder.jobInstanceDetail()
+			.<JobInstanceDetail>query((rs, rowNum) -> JobInstanceDetailBuilder.jobInstanceDetail()
 				.jobInstanceId(rs.getLong("JOB_INSTANCE_ID"))
 				.jobName(rs.getString("JOB_NAME"))
 				.jobKey(rs.getString("JOB_KEY"))

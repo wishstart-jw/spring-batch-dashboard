@@ -17,7 +17,7 @@ const defaultFetcher = <T,>(url: string): Promise<T> => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <SWRConfig 
         value={{
           fetcher: defaultFetcher,

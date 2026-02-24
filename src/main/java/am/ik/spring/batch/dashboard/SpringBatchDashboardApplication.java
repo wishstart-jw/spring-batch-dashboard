@@ -2,9 +2,16 @@ package am.ik.spring.batch.dashboard;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 
 @SpringBootApplication
-public class SpringBatchDashboardApplication {
+public class SpringBatchDashboardApplication extends SpringBootServletInitializer {
+
+	@Override
+	protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
+		return application.sources(SpringBatchDashboardApplication.class);
+	}
 
 	public static void main(String[] args) {
 		SpringApplication.run(SpringBatchDashboardApplication.class, args);

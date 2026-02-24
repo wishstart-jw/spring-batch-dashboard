@@ -20,49 +20,50 @@ public class JobExecutionMapper {
 	public PageResponse<JobExecution> findJobExecutions(JobExecutionsParams params) {
 		Integer page = Objects.requireNonNullElse(params.page(), 0);
 		Integer size = Objects.requireNonNullElse(params.size(), 20);
+		int offset = page * size;
 		List<JobExecution> content = this.jdbcClient.sql("""
-				SELECT
-				    je.JOB_EXECUTION_ID,
-				    je.JOB_INSTANCE_ID,
-				    ji.JOB_NAME,
-				    je.CREATE_TIME,
-				    je.START_TIME,
-				    je.END_TIME,
-				    je.STATUS,
-				    je.EXIT_CODE,
-				    je.EXIT_MESSAGE
-				FROM
-				    BATCH_JOB_EXECUTION je
-				    JOIN
-				        BATCH_JOB_INSTANCE ji
-				    ON  je.JOB_INSTANCE_ID = ji.JOB_INSTANCE_ID
-				WHERE
-				    (
-				        :jobName::VARCHAR IS NULL
-				    OR  ji.JOB_NAME = :jobName
-				    )
-				AND (
-				        :status::VARCHAR IS NULL
-				    OR  je.STATUS = :status
-				    )
-				AND (
-				        :startDateFrom::TIMESTAMP IS NULL
-				    OR  je.START_TIME >= :startDateFrom
-				    )
-				AND (
-				        :startDateTo::TIMESTAMP IS NULL
-				    OR  je.START_TIME <= :startDateTo
-				    )
-				ORDER BY
-				    je.START_TIME DESC
-				LIMIT :size OFFSET :page * :size
-				""")
-			.param("jobName", params.jobName())
+				SELECT *
+				FROM (
+				    SELECT
+				        je.JOB_EXECUTION_ID,
+				        je.JOB_INSTANCE_ID,
+				        ji.JOB_NAME,
+				        je.CREATE_TIME,
+				        je.START_TIME,
+				        je.END_TIME,
+				        je.STATUS,
+				        je.EXIT_CODE,
+				        je.EXIT_MESSAGE,
+				        ROW_NUMBER() OVER (ORDER BY je.START_TIME DESC) as rn
+				    FROM
+				        BATCH_JOB_EXECUTION je
+				        JOIN
+				            BATCH_JOB_INSTANCE ji
+				        ON  je.JOB_INSTANCE_ID = ji.JOB_INSTANCE_ID
+				    WHERE
+				        (
+				            :jobName IS NULL
+				        OR  ji.JOB_NAME = :jobName
+				        )
+				    AND (
+				            :status IS NULL
+				        OR  je.STATUS = :status
+				        )
+				    AND (
+				            :startDateFrom IS NULL
+				        OR  je.START_TIME >= :startDateFrom
+				        )
+				    AND (
+				            :startDateTo IS NULL
+				        OR  je.START_TIME <= :startDateTo
+				        )
+				) sub
+				WHERE rn > %d AND rn <= %d
+				""".formatted(offset, offset + size))
+			.param("jobName", params.jobName(), Types.VARCHAR)
 			.param("status", params.status(), Types.VARCHAR)
-			.param("startDateFrom", params.startDateFrom())
-			.param("startDateTo", params.startDateTo())
-			.param("page", page)
-			.param("size", size)
+			.param("startDateFrom", params.startDateFrom(), Types.TIMESTAMP)
+			.param("startDateTo", params.startDateTo(), Types.TIMESTAMP)
 			.query(JobExecution.class)
 			.list();
 		long count = this.jdbcClient.sql("""
@@ -75,26 +76,26 @@ public class JobExecutionMapper {
 				    ON  je.JOB_INSTANCE_ID = ji.JOB_INSTANCE_ID
 				WHERE
 				    (
-				        :jobName::VARCHAR IS NULL
+				        :jobName IS NULL
 				    OR  ji.JOB_NAME = :jobName
 				    )
 				AND (
-				        :status::VARCHAR IS NULL
+				        :status IS NULL
 				    OR  je.STATUS = :status
 				    )
 				AND (
-				        :startDateFrom::TIMESTAMP IS NULL
+				        :startDateFrom IS NULL
 				    OR  je.START_TIME >= :startDateFrom
 				    )
 				AND (
-				        :startDateTo::TIMESTAMP IS NULL
+				        :startDateTo IS NULL
 				    OR  je.START_TIME <= :startDateTo
 				    )
 				""")
-			.param("jobName", params.jobName())
+			.param("jobName", params.jobName(), Types.VARCHAR)
 			.param("status", params.status(), Types.VARCHAR)
-			.param("startDateFrom", params.startDateFrom())
-			.param("startDateTo", params.startDateTo())
+			.param("startDateFrom", params.startDateFrom(), Types.TIMESTAMP)
+			.param("startDateTo", params.startDateTo(), Types.TIMESTAMP)
 			.query(Long.class)
 			.single();
 		return PageResponseBuilder.<JobExecution>pageResponse()
@@ -128,7 +129,7 @@ public class JobExecutionMapper {
 				    je.JOB_EXECUTION_ID = :jobExecutionId
 				""")
 			.param("jobExecutionId", jobExecutionId)
-			.query((rs, rowNum) -> JobExecutionDetailBuilder.jobExecutionDetail()
+			.<JobExecutionDetail>query((rs, rowNum) -> JobExecutionDetailBuilder.jobExecutionDetail()
 				.jobExecutionId(rs.getLong("JOB_EXECUTION_ID"))
 				.jobInstanceId(rs.getLong("JOB_INSTANCE_ID"))
 				.jobName(rs.getString("JOB_NAME"))
