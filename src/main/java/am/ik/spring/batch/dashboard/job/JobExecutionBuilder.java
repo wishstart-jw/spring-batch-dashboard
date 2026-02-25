@@ -25,8 +25,26 @@ public class JobExecutionBuilder {
 	@Nullable
 	private String exitMessage;
 
+	@Nullable
+	private java.util.List<JobParameter> parameters;
+
 	public static JobExecutionBuilder jobExecution() {
 		return new JobExecutionBuilder();
+	}
+
+	public static JobExecutionBuilder from(JobExecution src) {
+		JobExecutionBuilder b = new JobExecutionBuilder();
+		b.jobExecutionId = src.jobExecutionId();
+		b.jobInstanceId = src.jobInstanceId();
+		b.jobName = src.jobName();
+		b.createTime = src.createTime();
+		b.startTime = src.startTime();
+		b.endTime = src.endTime();
+		b.status = src.status();
+		b.exitCode = src.exitCode();
+		b.exitMessage = src.exitMessage();
+		b.parameters = src.parameters();
+		return b;
 	}
 
 	public JobExecutionBuilder jobExecutionId(long jobExecutionId) {
@@ -74,9 +92,14 @@ public class JobExecutionBuilder {
 		return this;
 	}
 
+	public JobExecutionBuilder parameters(@Nullable java.util.List<JobParameter> parameters) {
+		this.parameters = parameters;
+		return this;
+	}
+
 	public JobExecution build() {
 		return new JobExecution(this.jobExecutionId, this.jobInstanceId, this.jobName, this.createTime, this.startTime,
-				this.endTime, this.status, this.exitCode, this.exitMessage);
+				this.endTime, this.status, this.exitCode, this.exitMessage, this.parameters);
 	}
 
 }

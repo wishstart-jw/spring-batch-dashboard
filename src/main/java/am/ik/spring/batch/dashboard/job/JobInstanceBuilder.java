@@ -1,6 +1,7 @@
 package am.ik.spring.batch.dashboard.job;
 
 import org.springframework.lang.Nullable;
+import java.util.List;
 
 public class JobInstanceBuilder {
 
@@ -14,6 +15,9 @@ public class JobInstanceBuilder {
 
 	@Nullable
 	private JobExecutionSummary latestExecution;
+
+	@Nullable
+	private List<JobParameter> parameters;
 
 	public static JobInstanceBuilder jobInstance() {
 		return new JobInstanceBuilder();
@@ -44,8 +48,14 @@ public class JobInstanceBuilder {
 		return this;
 	}
 
+	public JobInstanceBuilder parameters(@Nullable List<JobParameter> parameters) {
+		this.parameters = parameters;
+		return this;
+	}
+
 	public JobInstance build() {
-		return new JobInstance(this.jobInstanceId, this.jobName, this.jobKey, this.version, this.latestExecution);
+		return new JobInstance(this.jobInstanceId, this.jobName, this.jobKey, this.version, this.latestExecution,
+				this.parameters);
 	}
 
 }

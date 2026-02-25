@@ -18,6 +18,9 @@ public class JobInstanceDetailBuilder {
 
 	private List<JobExecution> executions;
 
+	@Nullable
+	private List<JobParameter> parameters;
+
 	public static JobInstanceDetailBuilder jobInstanceDetail() {
 		return new JobInstanceDetailBuilder();
 	}
@@ -30,6 +33,7 @@ public class JobInstanceDetailBuilder {
 		b.version = src.version();
 		b.latestExecution = src.latestExecution();
 		b.executions = src.executions();
+		b.parameters = src.parameters();
 		return b;
 	}
 
@@ -63,9 +67,14 @@ public class JobInstanceDetailBuilder {
 		return this;
 	}
 
+	public JobInstanceDetailBuilder parameters(@Nullable List<JobParameter> parameters) {
+		this.parameters = parameters;
+		return this;
+	}
+
 	public JobInstanceDetail build() {
 		return new JobInstanceDetail(this.jobInstanceId, this.jobName, this.jobKey, this.version, this.latestExecution,
-				this.executions);
+				this.executions, this.parameters);
 	}
 
 }

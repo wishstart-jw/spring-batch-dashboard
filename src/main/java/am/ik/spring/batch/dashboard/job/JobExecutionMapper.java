@@ -21,7 +21,20 @@ public class JobExecutionMapper {
 		Integer page = Objects.requireNonNullElse(params.page(), 0);
 		Integer size = Objects.requireNonNullElse(params.size(), 20);
 		int offset = page * size;
-		List<JobExecution> content = this.jdbcClient.sql("""
+
+		// Build base SELECT with optional parameter JOIN
+		String parameterJoin = (params.parameterName() != null && params.parameterValue() != null) ? """
+				LEFT JOIN BATCH_JOB_EXECUTION_PARAMS jp
+				ON je.JOB_EXECUTION_ID = jp.JOB_EXECUTION_ID
+				AND jp.PARAMETER_NAME = :parameterName
+				AND jp.PARAMETER_VALUE = :parameterValue
+				""" : "";
+
+		// Build WHERE clause for parameter filtering
+		String parameterWhere = (params.parameterName() != null && params.parameterValue() != null)
+				? "AND jp.JOB_EXECUTION_ID IS NOT NULL" : "";
+
+		String query = """
 				SELECT *
 				FROM (
 				    SELECT
@@ -40,6 +53,7 @@ public class JobExecutionMapper {
 				        JOIN
 				            BATCH_JOB_INSTANCE ji
 				        ON  je.JOB_INSTANCE_ID = ji.JOB_INSTANCE_ID
+				        %s
 				    WHERE
 				        (
 				            :jobName IS NULL
@@ -57,23 +71,52 @@ public class JobExecutionMapper {
 				            :startDateTo IS NULL
 				        OR  je.START_TIME <= :startDateTo
 				        )
+				    %s
 				) sub
 				WHERE rn > %d AND rn <= %d
-				""".formatted(offset, offset + size))
+				""".formatted(parameterJoin, parameterWhere, offset, offset + size);
+
+		var sqlClient = this.jdbcClient.sql(query)
 			.param("jobName", params.jobName(), Types.VARCHAR)
 			.param("status", params.status(), Types.VARCHAR)
 			.param("startDateFrom", params.startDateFrom(), Types.TIMESTAMP)
-			.param("startDateTo", params.startDateTo(), Types.TIMESTAMP)
-			.query(JobExecution.class)
+			.param("startDateTo", params.startDateTo(), Types.TIMESTAMP);
+
+		if (params.parameterName() != null && params.parameterValue() != null) {
+			sqlClient = sqlClient.param("parameterName", params.parameterName(), Types.VARCHAR)
+				.param("parameterValue", params.parameterValue(), Types.VARCHAR);
+		}
+
+		List<JobExecution> content = sqlClient
+			.<JobExecution>query((rs, rowNum) -> JobExecutionBuilder.jobExecution()
+				.jobExecutionId(rs.getLong("JOB_EXECUTION_ID"))
+				.jobInstanceId(rs.getLong("JOB_INSTANCE_ID"))
+				.jobName(rs.getString("JOB_NAME"))
+				.createTime(rs.getObject("CREATE_TIME", LocalDateTime.class))
+				.startTime(rs.getObject("START_TIME", LocalDateTime.class))
+				.endTime(rs.getObject("END_TIME", LocalDateTime.class))
+				.status(JobStatus.valueOf(rs.getString("STATUS")))
+				.exitCode(rs.getString("EXIT_CODE"))
+				.exitMessage(rs.getString("EXIT_MESSAGE"))
+				.build())
 			.list();
-		long count = this.jdbcClient.sql("""
+
+		// Fetch parameters for each execution
+		for (int i = 0; i < content.size(); i++) {
+			JobExecution execution = content.get(i);
+			List<JobParameter> parameters = fetchJobParameters(execution.jobExecutionId());
+			content.set(i, JobExecutionBuilder.from(execution).parameters(parameters).build());
+		}
+
+		String countQuery = """
 				SELECT
-				    COUNT(*)
+				    COUNT(DISTINCT je.JOB_EXECUTION_ID)
 				FROM
 				    BATCH_JOB_EXECUTION je
 				    JOIN
 				        BATCH_JOB_INSTANCE ji
 				    ON  je.JOB_INSTANCE_ID = ji.JOB_INSTANCE_ID
+				    %s
 				WHERE
 				    (
 				        :jobName IS NULL
@@ -91,13 +134,22 @@ public class JobExecutionMapper {
 				        :startDateTo IS NULL
 				    OR  je.START_TIME <= :startDateTo
 				    )
-				""")
+				    %s
+				""".formatted(parameterJoin, parameterWhere);
+
+		var countClient = this.jdbcClient.sql(countQuery)
 			.param("jobName", params.jobName(), Types.VARCHAR)
 			.param("status", params.status(), Types.VARCHAR)
 			.param("startDateFrom", params.startDateFrom(), Types.TIMESTAMP)
-			.param("startDateTo", params.startDateTo(), Types.TIMESTAMP)
-			.query(Long.class)
-			.single();
+			.param("startDateTo", params.startDateTo(), Types.TIMESTAMP);
+
+		if (params.parameterName() != null && params.parameterValue() != null) {
+			countClient = countClient.param("parameterName", params.parameterName(), Types.VARCHAR)
+				.param("parameterValue", params.parameterValue(), Types.VARCHAR);
+		}
+
+		long count = countClient.query(Long.class).single();
+
 		return PageResponseBuilder.<JobExecution>pageResponse()
 			.content(content)
 			.page(page)
@@ -105,6 +157,30 @@ public class JobExecutionMapper {
 			.totalElements(count)
 			.totalPages((int) (count / size) + 1)
 			.build();
+	}
+
+	private List<JobParameter> fetchJobParameters(long jobExecutionId) {
+		return this.jdbcClient.sql("""
+				SELECT
+				    PARAMETER_NAME,
+				    PARAMETER_TYPE,
+				    PARAMETER_VALUE,
+				    IDENTIFYING
+				FROM
+				    BATCH_JOB_EXECUTION_PARAMS
+				WHERE
+				    JOB_EXECUTION_ID = :jobExecutionId
+				ORDER BY
+				    PARAMETER_NAME
+				""")
+			.param("jobExecutionId", jobExecutionId)
+			.<JobParameter>query((rs, rowNum) -> JobParameterBuilder.jobParameter()
+				.name(rs.getString("PARAMETER_NAME"))
+				.type(rs.getString("PARAMETER_TYPE"))
+				.value(rs.getString("PARAMETER_VALUE"))
+				.identifying(rs.getBoolean("IDENTIFYING"))
+				.build())
+			.list();
 	}
 
 	public Optional<JobExecutionDetail> getJobExecutionDetail(long jobExecutionId) {

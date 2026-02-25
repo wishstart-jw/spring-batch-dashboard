@@ -16,6 +16,12 @@ public class JobInstancesParamsBuilder {
 	@Nullable
 	private String sort;
 
+	@Nullable
+	private String parameterName;
+
+	@Nullable
+	private String parameterValue;
+
 	public static JobInstancesParamsBuilder jobInstancesParams() {
 		return new JobInstancesParamsBuilder();
 	}
@@ -40,8 +46,19 @@ public class JobInstancesParamsBuilder {
 		return this;
 	}
 
+	public JobInstancesParamsBuilder parameterName(@Nullable String parameterName) {
+		this.parameterName = parameterName;
+		return this;
+	}
+
+	public JobInstancesParamsBuilder parameterValue(@Nullable String parameterValue) {
+		this.parameterValue = parameterValue;
+		return this;
+	}
+
 	public JobInstancesParams build() {
-		return new JobInstancesParams(this.jobName, this.page, this.size, this.sort);
+		return new JobInstancesParams(this.jobName, this.page, this.size, this.sort, this.parameterName,
+				this.parameterValue);
 	}
 
 }

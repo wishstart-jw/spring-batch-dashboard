@@ -21,7 +21,9 @@ public class JobInstanceMapper {
 		Integer page = Objects.requireNonNullElse(params.page(), 0);
 		Integer size = Objects.requireNonNullElse(params.size(), 20);
 		int offset = page * size;
-		List<JobInstance> content = this.jdbcClient.sql("""
+
+		// Build base SQL query
+		String baseQuery = """
 				SELECT *
 				FROM (
 				    SELECT
@@ -62,7 +64,9 @@ public class JobInstanceMapper {
 				        )
 				) sub
 				WHERE rn > %d AND rn <= %d
-				""".formatted(offset, offset + size))
+				""".formatted(offset, offset + size);
+
+		List<JobInstance> content = this.jdbcClient.sql(baseQuery)
 			.param("jobName", params.jobName(), Types.VARCHAR)
 			.<JobInstance>query((rs, rowNum) -> {
 				String statusStr = rs.getString("STATUS");
@@ -73,12 +77,17 @@ public class JobInstanceMapper {
 							.endTime(rs.getObject("END_TIME", LocalDateTime.class))
 							.status(JobStatus.valueOf(statusStr))
 							.build();
+
+				long jobExecutionId = rs.getLong("JOB_EXECUTION_ID");
+				List<JobParameter> parameters = jobExecutionId > 0 ? fetchJobParameters(jobExecutionId) : List.of();
+
 				return JobInstanceBuilder.jobInstance()
 					.jobInstanceId(rs.getLong("JOB_INSTANCE_ID"))
 					.jobName(rs.getString("JOB_NAME"))
 					.jobKey(rs.getString("JOB_KEY"))
 					.version(rs.getInt("VERSION"))
 					.latestExecution(latestExecution)
+					.parameters(parameters.isEmpty() ? null : parameters)
 					.build();
 			})
 			.list();
@@ -96,6 +105,30 @@ public class JobInstanceMapper {
 			.totalElements(count)
 			.totalPages((int) (count / size) + 1)
 			.build();
+	}
+
+	private List<JobParameter> fetchJobParameters(long jobExecutionId) {
+		return this.jdbcClient.sql("""
+				SELECT
+				    PARAMETER_NAME,
+				    PARAMETER_TYPE,
+				    PARAMETER_VALUE,
+				    IDENTIFYING
+				FROM
+				    BATCH_JOB_EXECUTION_PARAMS
+				WHERE
+				    JOB_EXECUTION_ID = :jobExecutionId
+				ORDER BY
+				    PARAMETER_NAME
+				""")
+			.param("jobExecutionId", jobExecutionId)
+			.<JobParameter>query((rs, rowNum) -> JobParameterBuilder.jobParameter()
+				.name(rs.getString("PARAMETER_NAME"))
+				.type(rs.getString("PARAMETER_TYPE"))
+				.value(rs.getString("PARAMETER_VALUE"))
+				.identifying(rs.getBoolean("IDENTIFYING"))
+				.build())
+			.list();
 	}
 
 	public Optional<JobInstanceDetail> getJobInstanceDetail(long jobInstanceId) {
@@ -158,6 +191,8 @@ public class JobInstanceMapper {
 						ORDER BY
 						    je.START_TIME DESC
 						""").param("jobInstanceId", jobInstanceId).query(JobExecution.class).list())
+				.parameters(jobInstanceDetail.latestExecution() != null
+						? fetchJobParameters(jobInstanceDetail.latestExecution().jobExecutionId()) : null)
 				.build());
 	}
 

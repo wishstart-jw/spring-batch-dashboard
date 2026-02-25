@@ -5,5 +5,6 @@ import org.springframework.lang.Nullable;
 
 public record JobExecutionsParams(@Nullable String jobName, @Nullable JobStatus status,
 		@Nullable LocalDateTime startDateFrom, @Nullable LocalDateTime startDateTo, @Nullable Integer page,
-		@Nullable Integer size, @Nullable String sort) {
+		@Nullable Integer size, @Nullable String sort, @Nullable String parameterName,
+		@Nullable String parameterValue) {
 }

@@ -42,6 +42,8 @@ const JobExecutionsList = () => {
   const [statusFilter, setStatusFilter] = useState<JobStatus | ''>(initialParams.status || '');
   const [startDateFrom, setStartDateFrom] = useState(initialParams.startDateFrom || '');
   const [startDateTo, setStartDateTo] = useState(initialParams.startDateTo || '');
+  const [parameterNameFilter, setParameterNameFilter] = useState(initialParams.parameterName || '');
+  const [parameterValueFilter, setParameterValueFilter] = useState(initialParams.parameterValue || '');
   
   // Fetch job executions with current params
   const {
@@ -84,6 +86,8 @@ const JobExecutionsList = () => {
       status: statusFilter as JobStatus || undefined,
       startDateFrom: startDateFrom || undefined,
       startDateTo: startDateTo || undefined,
+      parameterName: parameterNameFilter || undefined,
+      parameterValue: parameterValueFilter || undefined,
       page: 0 // Reset to first page when filtering
     }))
   }
@@ -94,6 +98,8 @@ const JobExecutionsList = () => {
     setStatusFilter('')
     setStartDateFrom('')
     setStartDateTo('')
+    setParameterNameFilter('')
+    setParameterValueFilter('')
     setParams({
       page: 0,
       size: 20,
@@ -176,6 +182,34 @@ const JobExecutionsList = () => {
                   onChange={(e) => setStartDateTo(e.target.value)}
                 />
               </div>
+
+              <div>
+                <label htmlFor="parameterName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Parameter Name
+                </label>
+                <input
+                  type="text"
+                  id="parameterName"
+                  className="input w-full"
+                  value={parameterNameFilter}
+                  onChange={(e) => setParameterNameFilter(e.target.value)}
+                  placeholder="e.g., date, batch-id"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="parameterValue" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Parameter Value
+                </label>
+                <input
+                  type="text"
+                  id="parameterValue"
+                  className="input w-full"
+                  value={parameterValueFilter}
+                  onChange={(e) => setParameterValueFilter(e.target.value)}
+                  placeholder="e.g., 2024-01-01"
+                />
+              </div>
             </div>
             
             <div className="mt-4 flex gap-2">
@@ -206,6 +240,7 @@ const JobExecutionsList = () => {
                 <th className="table-header-cell">Start Time</th>
                 <th className="table-header-cell">End Time</th>
                 <th className="table-header-cell">Status</th>
+                <th className="table-header-cell">Parameters</th>
                 <th className="table-header-cell">Actions</th>
               </tr>
             </thead>
@@ -246,6 +281,23 @@ const JobExecutionsList = () => {
                     <StatusBadge status={execution.status} />
                   </td>
                   <td className="table-cell">
+                    {execution.parameters && execution.parameters.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {execution.parameters.map((param) => (
+                          <span 
+                            key={param.name}
+                            className="inline-block bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded"
+                            title={`${param.name}=${param.value}`}
+                          >
+                            {param.name}: {param.value.length > 20 ? param.value.substring(0, 20) + '...' : param.value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-500 dark:text-gray-400">-</span>
+                    )}
+                  </td>
+                  <td className="table-cell">
                     <Link 
                       to={`/job-executions/${execution.jobExecutionId}`}
                       className="btn btn-outline py-1 px-2 text-xs"
@@ -259,7 +311,7 @@ const JobExecutionsList = () => {
               {/* No results message */}
               {jobExecutions?.content.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="table-cell text-center py-8 text-gray-500 dark:text-gray-400">
+                  <td colSpan={9} className="table-cell text-center py-8 text-gray-500 dark:text-gray-400">
                     No job executions found.
                   </td>
                 </tr>
