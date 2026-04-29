@@ -28,6 +28,8 @@ const JobInstancesList = () => {
 
   // State for filter form - initialize with URL param or saved state
   const [jobNameFilter, setJobNameFilter] = useState(urlJobName || initialParams.jobName || "");
+  const [parameterNameFilter, setParameterNameFilter] = useState(initialParams.parameterName || "");
+  const [parameterValueFilter, setParameterValueFilter] = useState(initialParams.parameterValue || "");
 
   // Fetch job instances with current params
   const { jobInstances, isLoading, isError, error } = useJobInstances(params);
@@ -61,7 +63,9 @@ const JobInstancesList = () => {
     e.preventDefault();
     setParams((prev) => ({
       ...prev,
-      jobName: jobNameFilter || undefined, // Don't send empty string
+      jobName: jobNameFilter || undefined,
+      parameterName: parameterNameFilter || undefined,
+      parameterValue: parameterValueFilter || undefined,
       page: 0, // Reset to first page when filtering
     }));
   };
@@ -69,6 +73,8 @@ const JobInstancesList = () => {
   // Handle filter reset
   const handleFilterReset = () => {
     setJobNameFilter("");
+    setParameterNameFilter("");
+    setParameterValueFilter("");
     setParams({
       page: 0,
       size: 20,
@@ -78,6 +84,14 @@ const JobInstancesList = () => {
     // Clear URL parameters
     setSearchParams(new URLSearchParams());
   };
+
+  // Get unique parameter names from the current page results (for autocomplete hints)
+  const allParameterNames = new Set<string>();
+  jobInstances?.content.forEach((instance) => {
+    instance.parameters?.forEach((param) => {
+      allParameterNames.add(param.name);
+    });
+  });
 
   // Loading state
   if (isLoading) {
@@ -100,6 +114,20 @@ const JobInstancesList = () => {
                   Job Name
                 </label>
                 <input type="text" id="jobName" className="input" value={jobNameFilter} onChange={(e) => setJobNameFilter(e.target.value)} placeholder="Filter by job name" />
+              </div>
+
+              <div>
+                <label htmlFor="parameterName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Parameter Name
+                </label>
+                <input type="text" id="parameterName" className="input" value={parameterNameFilter} onChange={(e) => setParameterNameFilter(e.target.value)} placeholder="e.g., date, batch-id" />
+              </div>
+
+              <div>
+                <label htmlFor="parameterValue" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Parameter Value
+                </label>
+                <input type="text" id="parameterValue" className="input" value={parameterValueFilter} onChange={(e) => setParameterValueFilter(e.target.value)} placeholder="e.g., 2024-01-01" />
               </div>
 
               <div className="flex gap-2">
@@ -125,6 +153,7 @@ const JobInstancesList = () => {
                 <th className="table-header-cell">Status</th>
                 <th className="table-header-cell">Start Time</th>
                 <th className="table-header-cell">End Time</th>
+                <th className="table-header-cell">Parameters</th>
                 <th className="table-header-cell">Actions</th>
               </tr>
             </thead>
@@ -159,6 +188,23 @@ const JobInstancesList = () => {
                     }
                   </td>
                   <td className="table-cell">
+                    {instance.parameters && instance.parameters.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {instance.parameters.map((param) => (
+                          <span 
+                            key={param.name}
+                            className="inline-block bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded"
+                            title={`${param.name}=${param.value}`}
+                          >
+                            {param.name}: {param.value.length > 20 ? param.value.substring(0, 20) + '...' : param.value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-500 dark:text-gray-400">-</span>
+                    )}
+                  </td>
+                  <td className="table-cell">
                     <Link 
                       to={`/job-instances/${instance.jobInstanceId}`} 
                       className="btn btn-outline py-1 px-2 text-xs"
@@ -172,7 +218,7 @@ const JobInstancesList = () => {
               {/* No results message */}
               {jobInstances?.content.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="table-cell text-center py-8 text-gray-500 dark:text-gray-400">
+                  <td colSpan={8} className="table-cell text-center py-8 text-gray-500 dark:text-gray-400">
                     No job instances found.
                   </td>
                 </tr>

@@ -190,7 +190,20 @@ public class JobInstanceMapper {
 						    je.JOB_INSTANCE_ID = :jobInstanceId
 						ORDER BY
 						    je.START_TIME DESC
-						""").param("jobInstanceId", jobInstanceId).query(JobExecution.class).list())
+						""")
+					.param("jobInstanceId", jobInstanceId)
+					.<JobExecution>query((rs, rowNum) -> JobExecutionBuilder.jobExecution()
+						.jobExecutionId(rs.getLong("JOB_EXECUTION_ID"))
+						.jobInstanceId(rs.getLong("JOB_INSTANCE_ID"))
+						.jobName(rs.getString("JOB_NAME"))
+						.createTime(rs.getObject("CREATE_TIME", LocalDateTime.class))
+						.startTime(rs.getObject("START_TIME", LocalDateTime.class))
+						.endTime(rs.getObject("END_TIME", LocalDateTime.class))
+						.status(JobStatus.valueOf(rs.getString("STATUS")))
+						.exitCode(rs.getString("EXIT_CODE"))
+						.exitMessage(rs.getString("EXIT_MESSAGE"))
+						.build())
+					.list())
 				.parameters(jobInstanceDetail.latestExecution() != null
 						? fetchJobParameters(jobInstanceDetail.latestExecution().jobExecutionId()) : null)
 				.build());

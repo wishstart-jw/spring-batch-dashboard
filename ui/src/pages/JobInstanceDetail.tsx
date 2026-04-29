@@ -54,6 +54,46 @@ const JobInstanceDetail = () => {
         </div>
       </Card>
 
+      {/* Parameters */}
+      <Card title="Parameters">
+        <div className="table-container">
+          <table className="table">
+            <thead className="table-header">
+              <tr>
+                <th className="table-header-cell">Name</th>
+                <th className="table-header-cell">Type</th>
+                <th className="table-header-cell">Value</th>
+                <th className="table-header-cell">Identifying</th>
+              </tr>
+            </thead>
+            <tbody className="table-body">
+              {jobInstanceDetail.parameters && jobInstanceDetail.parameters.length > 0 ? (
+                jobInstanceDetail.parameters.map((param, index) => (
+                  <tr key={index} className="table-row">
+                    <td className="table-cell">{param.name}</td>
+                    <td className="table-cell">{param.type}</td>
+                    <td className="table-cell">
+                      <div className="max-w-xs truncate" title={param.value}>
+                        {param.value}
+                      </div>
+                    </td>
+                    <td className="table-cell">
+                      {param.identifying ? 'Yes' : 'No'}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="table-cell text-center py-8 text-gray-500 dark:text-gray-400">
+                    No parameters found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       {/* Job Executions Table */}
       <Card title="Job Executions">
         <div className="table-container">

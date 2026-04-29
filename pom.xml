@@ -191,34 +191,41 @@
           <installDirectory>target</installDirectory>
           <nodeVersion>v22.15.0</nodeVersion>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.5.0</version>
         <executions>
-<!--          <execution>
-            <id>install node and npm</id>
-            <goals>
-              <goal>install-node-and-npm</goal>
-            </goals>
-          </execution>
           <execution>
             <id>npm install ui</id>
             <goals>
-              <goal>npm</goal>
+              <goal>exec</goal>
             </goals>
+            <phase>generate-resources</phase>
             <configuration>
-              <arguments>install</arguments>
+              <executable>${npm.executable}</executable>
+              <arguments>
+                <argument>install</argument>
+              </arguments>
               <workingDirectory>${project.basedir}/ui</workingDirectory>
             </configuration>
           </execution>
           <execution>
-            <id>npm run lint ui</id>
+            <id>npm run build ui</id>
             <goals>
-              <goal>npm</goal>
+              <goal>exec</goal>
             </goals>
-            <phase>test</phase>
+            <phase>generate-resources</phase>
             <configuration>
-              <arguments>run lint</arguments>
+              <executable>${npm.executable}</executable>
+              <arguments>
+                <argument>run</argument>
+                <argument>build</argument>
+              </arguments>
               <workingDirectory>${project.basedir}/ui</workingDirectory>
             </configuration>
-          </execution> -->
+          </execution>
         </executions>
       </plugin>
     </plugins>
@@ -236,51 +243,6 @@
       <properties>
         <npm.executable>npm.cmd</npm.executable>
       </properties>
-    </profile>
-
-    <!-- Activate with: mvn package -P with-ui -->
-    <profile>
-      <id>with-ui</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <version>3.5.0</version>
-            <executions>
-              <execution>
-                <id>npm install ui</id>
-                <goals>
-                  <goal>exec</goal>
-                </goals>
-                <phase>generate-resources</phase>
-                <configuration>
-                  <executable>${npm.executable}</executable>
-                  <arguments>
-                    <argument>install</argument>
-                  </arguments>
-                  <workingDirectory>${project.basedir}/ui</workingDirectory>
-                </configuration>
-              </execution>
-              <execution>
-                <id>npm run build ui</id>
-                <goals>
-                  <goal>exec</goal>
-                </goals>
-                <phase>generate-resources</phase>
-                <configuration>
-                  <executable>${npm.executable}</executable>
-                  <arguments>
-                    <argument>run</argument>
-                    <argument>build</argument>
-                  </arguments>
-                  <workingDirectory>${project.basedir}/ui</workingDirectory>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
     </profile>
   </profiles>
 </project>

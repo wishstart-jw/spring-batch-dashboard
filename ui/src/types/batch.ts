@@ -5,6 +5,7 @@ export interface JobInstance {
   jobKey: string
   version: number
   latestExecution?: JobExecutionSummary
+  parameters?: JobParameter[]
 }
 
 export interface JobExecutionSummary {
@@ -134,6 +135,8 @@ export interface JobInstancesParams {
   page?: number
   size?: number
   sort?: string
+  parameterName?: string
+  parameterValue?: string
   [key: string]: string | number | undefined
 }
 
@@ -145,6 +148,8 @@ export interface JobExecutionsParams {
   page?: number
   size?: number
   sort?: string
+  parameterName?: string
+  parameterValue?: string
   [key: string]: string | number | undefined
 }
 
