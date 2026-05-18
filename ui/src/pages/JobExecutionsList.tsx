@@ -24,14 +24,54 @@ const JOB_STATUSES: JobStatus[] = [
 const JobExecutionsList = () => {
   const { searchState, setJobExecutionsState } = useSearchState();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const hasUrlManagedFilters = [
+    'jobName',
+    'status',
+    'startDateFrom',
+    'startDateTo',
+    'parameterName',
+    'parameterValue'
+  ].some((key) => searchParams.has(key));
   
   // Initialize params with URL params or saved state
-  const initialParams = { ...searchState.jobExecutions };
+  const initialParams: JobExecutionsParams = hasUrlManagedFilters
+    ? {
+        page: 0,
+        size: 20,
+        sort: 'startTime,desc'
+      }
+    : { ...searchState.jobExecutions };
   
-  // Check if jobName is in URL params
+  // Hydrate selected filters from URL params when available.
   const urlJobName = searchParams.get("jobName");
+  const urlStatus = searchParams.get("status");
+  const urlStartDateFrom = searchParams.get("startDateFrom");
+  const urlStartDateTo = searchParams.get("startDateTo");
+  const urlParameterName = searchParams.get("parameterName");
+  const urlParameterValue = searchParams.get("parameterValue");
+  const normalizedUrlStatus =
+    urlStatus && JOB_STATUSES.includes(urlStatus as JobStatus)
+      ? (urlStatus as JobStatus)
+      : undefined;
+
   if (urlJobName) {
     initialParams.jobName = urlJobName;
+  }
+  if (normalizedUrlStatus) {
+    initialParams.status = normalizedUrlStatus;
+  }
+  if (urlStartDateFrom) {
+    initialParams.startDateFrom = urlStartDateFrom;
+  }
+  if (urlStartDateTo) {
+    initialParams.startDateTo = urlStartDateTo;
+  }
+  if (urlParameterName) {
+    initialParams.parameterName = urlParameterName;
+  }
+  if (urlParameterValue) {
+    initialParams.parameterValue = urlParameterValue;
   }
   
   // State for filter and pagination
@@ -39,11 +79,11 @@ const JobExecutionsList = () => {
   
   // State for filter form - initialize with URL params or saved state
   const [jobNameFilter, setJobNameFilter] = useState(urlJobName || initialParams.jobName || '');
-  const [statusFilter, setStatusFilter] = useState<JobStatus | ''>(initialParams.status || '');
-  const [startDateFrom, setStartDateFrom] = useState(initialParams.startDateFrom || '');
-  const [startDateTo, setStartDateTo] = useState(initialParams.startDateTo || '');
-  const [parameterNameFilter, setParameterNameFilter] = useState(initialParams.parameterName || '');
-  const [parameterValueFilter, setParameterValueFilter] = useState(initialParams.parameterValue || '');
+  const [statusFilter, setStatusFilter] = useState<JobStatus | ''>(initialParams.status || normalizedUrlStatus || '');
+  const [startDateFrom, setStartDateFrom] = useState(urlStartDateFrom || initialParams.startDateFrom || '');
+  const [startDateTo, setStartDateTo] = useState(urlStartDateTo || initialParams.startDateTo || '');
+  const [parameterNameFilter, setParameterNameFilter] = useState(urlParameterName || initialParams.parameterName || '');
+  const [parameterValueFilter, setParameterValueFilter] = useState(urlParameterValue || initialParams.parameterValue || '');
   
   // Fetch job executions with current params
   const {
@@ -64,6 +104,15 @@ const JobExecutionsList = () => {
     
     if (params.jobName) {
       newSearchParams.set("jobName", params.jobName);
+    }
+    if (params.status) {
+      newSearchParams.set("status", params.status);
+    }
+    if (params.startDateFrom) {
+      newSearchParams.set("startDateFrom", params.startDateFrom);
+    }
+    if (params.startDateTo) {
+      newSearchParams.set("startDateTo", params.startDateTo);
     }
     
     // Only update if search params have changed

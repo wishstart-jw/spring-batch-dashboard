@@ -7,6 +7,7 @@ import { useJobStatistics } from '../hooks/useJobStatistics'
 import { useJobInstances } from '../hooks/useJobInstances'
 import { useJobExecutions } from '../hooks/useJobExecutions'
 import { DateTime } from '../components/DateTime'
+import { useSearchState } from '../context/SearchStateContext'
 import { 
   BarChart2, 
   CheckCircle, 
@@ -17,16 +18,13 @@ import {
 } from 'lucide-react'
 
 const Dashboard = () => {
+  const { searchState } = useSearchState()
+
   // Fetch job statistics
   const { jobStatistics, isLoading: statsLoading, isError: statsError, error: statsErrorData } = useJobStatistics()
   
   // Fetch recent job instances (first page)
-  const { 
-    jobInstances: recentInstances,
-    isLoading: instancesLoading,
-    isError: instancesError,
-    error: instancesErrorData
-  } = useJobInstances({ page: 0, size: 5 })
+  const { isLoading: instancesLoading } = useJobInstances({ page: 0, size: 5 })
   
   // Fetch recent job executions (first page)
   const {
@@ -35,9 +33,25 @@ const Dashboard = () => {
     isError: executionsError,
     error: executionsErrorData
   } = useJobExecutions({ page: 0, size: 5 })
+
+  // Reuse saved execution filters while forcing recent failed rows for this panel.
+  const failedExecutionParams = {
+    ...searchState.jobExecutions,
+    status: 'FAILED' as const,
+    page: 0,
+    size: 5,
+    sort: 'startTime,desc'
+  }
+
+  const {
+    jobExecutions: failedExecutions,
+    isLoading: failedExecutionsLoading,
+    isError: failedExecutionsError,
+    error: failedExecutionsErrorData
+  } = useJobExecutions(failedExecutionParams)
   
   // Loading state
-  if (statsLoading || instancesLoading || executionsLoading) {
+  if (statsLoading || instancesLoading || executionsLoading || failedExecutionsLoading) {
     return <LoadingSpinner size="lg" />
   }
   
@@ -95,58 +109,6 @@ const Dashboard = () => {
         </div>
       </Card>
       
-      {/* Recent Job Instances */}
-      <Card title={
-        <div className="flex items-center">
-          <ListOrdered size={20} className="mr-2 text-primary-500" />
-          <span>Recent Job Instances</span>
-        </div>
-      }>
-        {instancesError ? (
-          <ErrorMessage error={instancesErrorData} />
-        ) : (
-          <>
-            <div className="table-container">
-              <table className="table">
-                <thead className="table-header">
-                  <tr>
-                    <th className="table-header-cell">ID</th>
-                    <th className="table-header-cell">Job Name</th>
-                    <th className="table-header-cell">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="table-body">
-                  {recentInstances?.content.map((instance) => (
-                    <tr key={instance.jobInstanceId} className="table-row">
-                      <td className="table-cell">
-                        <Link 
-                          to={`/job-instances/${instance.jobInstanceId}`}
-                          className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
-                        >
-                          {instance.jobInstanceId}
-                        </Link>
-                      </td>
-                      <td className="table-cell">{instance.jobName}</td>
-                      <td className="table-cell">
-                        {instance.latestExecution && (
-                          <StatusBadge status={instance.latestExecution.status} />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-4">
-              <Link to="/job-instances" className="btn-outline inline-flex items-center">
-                <span>View All Job Instances</span>
-                <ArrowRight size={16} className="ml-2" />
-              </Link>
-            </div>
-          </>
-        )}
-      </Card>
-      
       {/* Recent Job Executions */}
       <Card title={
         <div className="flex items-center">
@@ -194,6 +156,67 @@ const Dashboard = () => {
             <div className="mt-4">
               <Link to="/job-executions" className="btn-outline inline-flex items-center">
                 <span>View All Job Executions</span>
+                <ArrowRight size={16} className="ml-2" />
+              </Link>
+            </div>
+          </>
+        )}
+      </Card>
+
+      {/* Recent Failed Job Executions */}
+      <Card title={
+        <div className="flex items-center">
+          <XCircle size={20} className="mr-2 text-danger-500" />
+          <span>Recent Failed Job Executions</span>
+        </div>
+      }>
+        {failedExecutionsError ? (
+          <ErrorMessage error={failedExecutionsErrorData} />
+        ) : (
+          <>
+            <div className="table-container">
+              <table className="table">
+                <thead className="table-header">
+                  <tr>
+                    <th className="table-header-cell">ID</th>
+                    <th className="table-header-cell">Job Name</th>
+                    <th className="table-header-cell">Start Time</th>
+                    <th className="table-header-cell">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="table-body">
+                  {failedExecutions?.content.map((execution) => (
+                    <tr key={execution.jobExecutionId} className="table-row">
+                      <td className="table-cell">
+                        <Link 
+                          to={`/job-executions/${execution.jobExecutionId}`}
+                          className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
+                        >
+                          {execution.jobExecutionId}
+                        </Link>
+                      </td>
+                      <td className="table-cell">{execution.jobName}</td>
+                      <td className="table-cell">
+                        <DateTime date={execution.startTime} />
+                      </td>
+                      <td className="table-cell">
+                        <StatusBadge status={execution.status} />
+                      </td>
+                    </tr>
+                  ))}
+                  {failedExecutions?.content.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="table-cell text-center py-8 text-gray-500 dark:text-gray-400">
+                        No failed job executions found for the current filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4">
+              <Link to="/job-executions?status=FAILED" className="btn-outline inline-flex items-center">
+                <span>View Failed Job Executions</span>
                 <ArrowRight size={16} className="ml-2" />
               </Link>
             </div>

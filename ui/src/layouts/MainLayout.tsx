@@ -10,7 +10,8 @@ import {
   Moon, 
   Cpu,
   Menu,
-  X
+  X,
+  XCircle
 } from 'lucide-react'
 
 interface MainLayoutProps {
@@ -30,6 +31,7 @@ const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/', exact: true, icon: <Home size={20} /> },
   { name: 'Job Instances', path: '/job-instances', icon: <List size={20} /> },
   { name: 'Job Executions', path: '/job-executions', icon: <Play size={20} /> },
+  { name: 'Failed Executions', path: '/job-executions?status=FAILED', icon: <XCircle size={20} /> },
   { name: 'Statistics', path: '/statistics', icon: <BarChart3 size={20} /> }
 ]
 

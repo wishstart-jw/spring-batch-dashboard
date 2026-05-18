@@ -6,6 +6,7 @@ import { ErrorMessage } from '../components/ErrorMessage'
 import { useJobStatistics } from '../hooks/useJobStatistics'
 import { useJobSpecificStatistics } from '../hooks/useJobSpecificStatistics'
 import { useRecentJobExecutions } from '../hooks/useRecentJobExecutions'
+import { JobStatus } from '../types/batch'
 
 const Statistics = () => {
   // Get job name from URL if available (for specific job stats)
@@ -64,6 +65,70 @@ const Statistics = () => {
     const date = new Date(dateStr)
     return date.toLocaleDateString()
   }
+
+  const toDateTimeLocal = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  }
+
+  const buildJobExecutionsLink = (dateStr: string, status?: JobStatus) => {
+    const date = new Date(dateStr)
+    if (Number.isNaN(date.getTime())) {
+      return '/job-executions'
+    }
+
+    const startOfDay = new Date(date)
+    startOfDay.setHours(0, 0, 0, 0)
+
+    const endOfDay = new Date(date)
+    endOfDay.setHours(23, 59, 0, 0)
+
+    const params = new URLSearchParams({
+      startDateFrom: toDateTimeLocal(startOfDay),
+      startDateTo: toDateTimeLocal(endOfDay)
+    })
+
+    if (status) {
+      params.set('status', status)
+    }
+
+    return `/job-executions?${params.toString()}`
+  }
+
+  const renderLinkedCount = (
+    count: number,
+    dateStr: string,
+    label: string,
+    className: string,
+    status?: JobStatus
+  ) => {
+    if (count === 0) {
+      return (
+        <span
+          className={`${className} opacity-50 cursor-not-allowed`}
+          title={`No ${label} job executions for ${formatDate(dateStr)}`}
+          aria-label={`No ${label} job executions for ${formatDate(dateStr)}`}
+        >
+          {count}
+        </span>
+      )
+    }
+
+    return (
+      <Link
+        to={buildJobExecutionsLink(dateStr, status)}
+        className={`${className} underline-offset-2 hover:underline`}
+        title={`View ${label} job executions for ${formatDate(dateStr)}`}
+      >
+        {count}
+      </Link>
+    )
+  }
   
   return (
     <div className="space-y-6">
@@ -110,25 +175,45 @@ const Statistics = () => {
                 <tbody className="table-body">
                   {jobStatistics.recentJobStatuses.map((dailyStat, index) => (
                     <tr key={index} className="table-row">
+                      {(() => {
+                        const total = dailyStat.completed + dailyStat.failed + dailyStat.abandoned
+
+                        return (
+                          <>
                       <td className="table-cell">{formatDate(dailyStat.date)}</td>
                       <td className="table-cell">
-                        <span className="text-success-600 dark:text-success-400 font-medium">
-                          {dailyStat.completed}
-                        </span>
+                        {renderLinkedCount(
+                          dailyStat.completed,
+                          dailyStat.date,
+                          'COMPLETED',
+                          'text-success-600 dark:text-success-400 font-medium',
+                          'COMPLETED'
+                        )}
                       </td>
                       <td className="table-cell">
-                        <span className="text-danger-600 dark:text-danger-400 font-medium">
-                          {dailyStat.failed}
-                        </span>
+                        {renderLinkedCount(
+                          dailyStat.failed,
+                          dailyStat.date,
+                          'FAILED',
+                          'text-danger-600 dark:text-danger-400 font-medium',
+                          'FAILED'
+                        )}
                       </td>
                       <td className="table-cell">
-                        <span className="text-warning-600 dark:text-warning-400 font-medium">
-                          {dailyStat.abandoned}
-                        </span>
+                        {renderLinkedCount(
+                          dailyStat.abandoned,
+                          dailyStat.date,
+                          'ABANDONED',
+                          'text-warning-600 dark:text-warning-400 font-medium',
+                          'ABANDONED'
+                        )}
                       </td>
                       <td className="table-cell font-medium">
-                        {dailyStat.completed + dailyStat.failed + dailyStat.abandoned}
+                        {renderLinkedCount(total, dailyStat.date, 'all', 'font-medium')}
                       </td>
+                          </>
+                        )
+                      })()}
                     </tr>
                   ))}
                 </tbody>
