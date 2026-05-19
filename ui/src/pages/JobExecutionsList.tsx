@@ -6,8 +6,9 @@ import { ErrorMessage } from '../components/ErrorMessage'
 import { Pagination } from '../components/Pagination'
 import { StatusBadge } from '../components/StatusBadge'
 import { DateTime } from '../components/DateTime'
+import { Table, TableColumn } from '../components/Table'
 import { useJobExecutions } from '../hooks/useJobExecutions'
-import { JobExecutionsParams, JobStatus } from '../types/batch'
+import { JobExecution, JobExecutionsParams, JobStatus } from '../types/batch'
 import { useSearchState } from "../context/SearchStateContext"
 
 const JOB_STATUSES: JobStatus[] = [
@@ -21,6 +22,16 @@ const JOB_STATUSES: JobStatus[] = [
   'UNKNOWN'
 ]
 
+type SortBy = NonNullable<JobExecutionsParams['sortBy']>
+type SortOrder = NonNullable<JobExecutionsParams['sortOrder']>
+
+const DEFAULT_EXECUTIONS_PARAMS: JobExecutionsParams = {
+  page: 0,
+  size: 20,
+  sortBy: 'startTime',
+  sortOrder: 'desc'
+}
+
 const JobExecutionsList = () => {
   const { searchState, setJobExecutionsState } = useSearchState();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,16 +42,14 @@ const JobExecutionsList = () => {
     'startDateFrom',
     'startDateTo',
     'parameterName',
-    'parameterValue'
+    'parameterValue',
+    'sortBy',
+    'sortOrder'
   ].some((key) => searchParams.has(key));
   
   // Initialize params with URL params or saved state
   const initialParams: JobExecutionsParams = hasUrlManagedFilters
-    ? {
-        page: 0,
-        size: 20,
-        sort: 'startTime,desc'
-      }
+    ? { ...DEFAULT_EXECUTIONS_PARAMS }
     : { ...searchState.jobExecutions };
   
   // Hydrate selected filters from URL params when available.
@@ -50,10 +59,18 @@ const JobExecutionsList = () => {
   const urlStartDateTo = searchParams.get("startDateTo");
   const urlParameterName = searchParams.get("parameterName");
   const urlParameterValue = searchParams.get("parameterValue");
+  const urlSortBy = searchParams.get('sortBy');
+  const urlSortOrder = searchParams.get('sortOrder');
   const normalizedUrlStatus =
     urlStatus && JOB_STATUSES.includes(urlStatus as JobStatus)
       ? (urlStatus as JobStatus)
       : undefined;
+  const normalizedUrlSortBy =
+    urlSortBy && ['jobExecutionId', 'jobName', 'jobInstanceId', 'createTime', 'startTime', 'endTime', 'status'].includes(urlSortBy)
+      ? (urlSortBy as SortBy)
+      : undefined;
+  const normalizedUrlSortOrder =
+    urlSortOrder === 'asc' || urlSortOrder === 'desc' ? (urlSortOrder as SortOrder) : undefined;
 
   if (urlJobName) {
     initialParams.jobName = urlJobName;
@@ -73,6 +90,12 @@ const JobExecutionsList = () => {
   if (urlParameterValue) {
     initialParams.parameterValue = urlParameterValue;
   }
+  if (normalizedUrlSortBy) {
+    initialParams.sortBy = normalizedUrlSortBy;
+  }
+  if (normalizedUrlSortOrder) {
+    initialParams.sortOrder = normalizedUrlSortOrder;
+  }
   
   // State for filter and pagination
   const [params, setParams] = useState<JobExecutionsParams>(initialParams);
@@ -84,6 +107,22 @@ const JobExecutionsList = () => {
   const [startDateTo, setStartDateTo] = useState(urlStartDateTo || initialParams.startDateTo || '');
   const [parameterNameFilter, setParameterNameFilter] = useState(urlParameterName || initialParams.parameterName || '');
   const [parameterValueFilter, setParameterValueFilter] = useState(urlParameterValue || initialParams.parameterValue || '');
+
+  const handleSortChange = (sortBy: SortBy) => {
+    setParams((prev) => {
+      const currentSortBy = prev.sortBy ?? DEFAULT_EXECUTIONS_PARAMS.sortBy ?? 'startTime'
+      const currentSortOrder = prev.sortOrder ?? DEFAULT_EXECUTIONS_PARAMS.sortOrder ?? 'desc'
+      const nextSortOrder: SortOrder =
+        currentSortBy === sortBy ? (currentSortOrder === 'asc' ? 'desc' : 'asc') : 'desc'
+
+      return {
+        ...prev,
+        sortBy,
+        sortOrder: nextSortOrder,
+        page: 0
+      }
+    })
+  }
   
   // Fetch job executions with current params
   const {
@@ -113,6 +152,18 @@ const JobExecutionsList = () => {
     }
     if (params.startDateTo) {
       newSearchParams.set("startDateTo", params.startDateTo);
+    }
+    if (params.parameterName) {
+      newSearchParams.set("parameterName", params.parameterName);
+    }
+    if (params.parameterValue) {
+      newSearchParams.set("parameterValue", params.parameterValue);
+    }
+    if (params.sortBy) {
+      newSearchParams.set('sortBy', params.sortBy)
+    }
+    if (params.sortOrder) {
+      newSearchParams.set('sortOrder', params.sortOrder)
     }
     
     // Only update if search params have changed
@@ -149,11 +200,7 @@ const JobExecutionsList = () => {
     setStartDateTo('')
     setParameterNameFilter('')
     setParameterValueFilter('')
-    setParams({
-      page: 0,
-      size: 20,
-      sort: 'startTime,desc'
-    })
+    setParams({ ...DEFAULT_EXECUTIONS_PARAMS })
     
     // Clear URL parameters
     setSearchParams(new URLSearchParams())
@@ -168,6 +215,102 @@ const JobExecutionsList = () => {
   if (isError) {
     return <ErrorMessage error={error} />
   }
+
+  const columns: TableColumn<JobExecution>[] = [
+    {
+      key: 'jobExecutionId',
+      title: 'ID',
+      sortable: true,
+      render: (execution) => (
+        <Link
+          to={`/job-executions/${execution.jobExecutionId}`}
+          className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
+        >
+          {execution.jobExecutionId}
+        </Link>
+      )
+    },
+    {
+      key: 'jobName',
+      title: 'Job Name',
+      sortable: true,
+      render: (execution) => execution.jobName
+    },
+    {
+      key: 'jobInstanceId',
+      title: 'Instance ID',
+      sortable: true,
+      render: (execution) => (
+        <Link
+          to={`/job-instances/${execution.jobInstanceId}`}
+          className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
+        >
+          {execution.jobInstanceId}
+        </Link>
+      )
+    },
+    {
+      key: 'createTime',
+      title: 'Create Time',
+      sortable: true,
+      render: (execution) => <DateTime date={execution.createTime} />
+    },
+    {
+      key: 'startTime',
+      title: 'Start Time',
+      sortable: true,
+      render: (execution) => <DateTime date={execution.startTime} />
+    },
+    {
+      key: 'endTime',
+      title: 'End Time',
+      sortable: true,
+      render: (execution) =>
+        execution.endTime ? (
+          <DateTime date={execution.endTime} />
+        ) : (
+          <span className="text-gray-500 dark:text-gray-400">-</span>
+        )
+    },
+    {
+      key: 'status',
+      title: 'Status',
+      sortable: true,
+      render: (execution) => <StatusBadge status={execution.status} />
+    },
+    {
+      key: 'parameters',
+      title: 'Parameters',
+      render: (execution) =>
+        execution.parameters && execution.parameters.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {execution.parameters.map((param) => (
+              <span
+                key={param.name}
+                className="inline-block bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded"
+                title={`${param.name}=${param.value}`}
+              >
+                {param.name}: {param.value.length > 20 ? `${param.value.substring(0, 20)}...` : param.value}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-gray-500 dark:text-gray-400">-</span>
+        )
+    },
+    {
+      key: 'actions',
+      title: 'Actions',
+      render: (execution) => (
+        <Link
+          to={`/job-executions/${execution.jobExecutionId}`}
+          className="btn btn-outline py-1 px-2 text-xs"
+        >
+          Details
+        </Link>
+      )
+    }
+  ]
   
   return (
     <div>
@@ -278,96 +421,15 @@ const JobExecutionsList = () => {
       </div>
       
       <Card title="Job Executions">
-        <div className="table-container">
-          <table className="table">
-            <thead className="table-header">
-              <tr>
-                <th className="table-header-cell">ID</th>
-                <th className="table-header-cell">Job Name</th>
-                <th className="table-header-cell">Instance ID</th>
-                <th className="table-header-cell">Create Time</th>
-                <th className="table-header-cell">Start Time</th>
-                <th className="table-header-cell">End Time</th>
-                <th className="table-header-cell">Status</th>
-                <th className="table-header-cell">Parameters</th>
-                <th className="table-header-cell">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="table-body">
-              {jobExecutions?.content.map((execution) => (
-                <tr key={execution.jobExecutionId} className="table-row">
-                  <td className="table-cell">
-                    <Link 
-                      to={`/job-executions/${execution.jobExecutionId}`}
-                      className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
-                    >
-                      {execution.jobExecutionId}
-                    </Link>
-                  </td>
-                  <td className="table-cell">{execution.jobName}</td>
-                  <td className="table-cell">
-                    <Link 
-                      to={`/job-instances/${execution.jobInstanceId}`}
-                      className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
-                    >
-                      {execution.jobInstanceId}
-                    </Link>
-                  </td>
-                  <td className="table-cell">
-                    <DateTime date={execution.createTime} />
-                  </td>
-                  <td className="table-cell">
-                    <DateTime date={execution.startTime} />
-                  </td>
-                  <td className="table-cell">
-                    {execution.endTime ? (
-                      <DateTime date={execution.endTime} />
-                    ) : (
-                      <span className="text-gray-500 dark:text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="table-cell">
-                    <StatusBadge status={execution.status} />
-                  </td>
-                  <td className="table-cell">
-                    {execution.parameters && execution.parameters.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {execution.parameters.map((param) => (
-                          <span 
-                            key={param.name}
-                            className="inline-block bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded"
-                            title={`${param.name}=${param.value}`}
-                          >
-                            {param.name}: {param.value.length > 20 ? param.value.substring(0, 20) + '...' : param.value}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-gray-500 dark:text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="table-cell">
-                    <Link 
-                      to={`/job-executions/${execution.jobExecutionId}`}
-                      className="btn btn-outline py-1 px-2 text-xs"
-                    >
-                      Details
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              
-              {/* No results message */}
-              {jobExecutions?.content.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="table-cell text-center py-8 text-gray-500 dark:text-gray-400">
-                    No job executions found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          columns={columns}
+          data={jobExecutions?.content ?? []}
+          rowKey={(execution) => execution.jobExecutionId}
+          emptyMessage="No job executions found."
+          sortBy={params.sortBy}
+          sortOrder={params.sortOrder}
+          onSortChange={(sortBy) => handleSortChange(sortBy as SortBy)}
+        />
         
         {/* Pagination */}
         {jobExecutions && (

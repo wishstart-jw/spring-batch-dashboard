@@ -18,12 +18,14 @@ const defaultState: SearchState = {
   jobInstances: {
     page: 0,
     size: 20,
-    sort: "jobInstanceId,desc",
+    sortBy: 'jobInstanceId',
+    sortOrder: 'desc',
   },
   jobExecutions: {
     page: 0,
     size: 20, 
-    sort: "startTime,desc",
+    sortBy: 'startTime',
+    sortOrder: 'desc',
   }
 };
 

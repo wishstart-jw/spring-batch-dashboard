@@ -7,7 +7,6 @@ import { useJobStatistics } from '../hooks/useJobStatistics'
 import { useJobInstances } from '../hooks/useJobInstances'
 import { useJobExecutions } from '../hooks/useJobExecutions'
 import { DateTime } from '../components/DateTime'
-import { useSearchState } from '../context/SearchStateContext'
 import { 
   BarChart2, 
   CheckCircle, 
@@ -18,7 +17,6 @@ import {
 } from 'lucide-react'
 
 const Dashboard = () => {
-  const { searchState } = useSearchState()
 
   // Fetch job statistics
   const { jobStatistics, isLoading: statsLoading, isError: statsError, error: statsErrorData } = useJobStatistics()
@@ -34,9 +32,8 @@ const Dashboard = () => {
     error: executionsErrorData
   } = useJobExecutions({ page: 0, size: 5 })
 
-  // Reuse saved execution filters while forcing recent failed rows for this panel.
+  // Recent failed executions panel - only filter by status, don't inherit job name or other filters
   const failedExecutionParams = {
-    ...searchState.jobExecutions,
     status: 'FAILED' as const,
     page: 0,
     size: 5,

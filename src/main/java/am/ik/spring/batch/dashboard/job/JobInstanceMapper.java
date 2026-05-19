@@ -5,11 +5,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class JobInstanceMapper {
+
+	private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of("jobInstanceId", "jobName", "status", "startTime",
+			"endTime");
 
 	private final JdbcClient jdbcClient;
 
@@ -21,6 +25,7 @@ public class JobInstanceMapper {
 		Integer page = Objects.requireNonNullElse(params.page(), 0);
 		Integer size = Objects.requireNonNullElse(params.size(), 20);
 		int offset = page * size;
+		String orderBy = buildOrderBy(params.sort());
 
 		// Build base SQL query
 		String baseQuery = """
@@ -35,7 +40,7 @@ public class JobInstanceMapper {
 				        je.START_TIME,
 				        je.END_TIME,
 				        je.STATUS,
-				        ROW_NUMBER() OVER (ORDER BY ji.JOB_INSTANCE_ID DESC) as rn
+				        ROW_NUMBER() OVER (ORDER BY %s) as rn
 				    FROM
 				        BATCH_JOB_INSTANCE ji
 				        LEFT JOIN
@@ -64,7 +69,7 @@ public class JobInstanceMapper {
 				        )
 				) sub
 				WHERE rn > %d AND rn <= %d
-				""".formatted(offset, offset + size);
+				""".formatted(orderBy, offset, offset + size);
 
 		List<JobInstance> content = this.jdbcClient.sql(baseQuery)
 			.param("jobName", params.jobName(), Types.VARCHAR)
@@ -105,6 +110,29 @@ public class JobInstanceMapper {
 			.totalElements(count)
 			.totalPages((int) (count / size) + 1)
 			.build();
+	}
+
+	private String buildOrderBy(String sort) {
+		String sortBy = "jobInstanceId";
+		String sortOrder = "DESC";
+		if (sort != null && !sort.isBlank()) {
+			String[] parts = sort.split(",", 2);
+			if (parts.length > 0 && ALLOWED_SORT_COLUMNS.contains(parts[0])) {
+				sortBy = parts[0];
+			}
+			if (parts.length > 1 && "asc".equalsIgnoreCase(parts[1])) {
+				sortOrder = "ASC";
+			}
+		}
+
+		return switch (sortBy) {
+			case "jobInstanceId" -> "ji.JOB_INSTANCE_ID " + sortOrder;
+			case "jobName" -> "ji.JOB_NAME " + sortOrder + ", ji.JOB_INSTANCE_ID DESC";
+			case "status" -> "je.STATUS " + sortOrder + " NULLS LAST, ji.JOB_INSTANCE_ID DESC";
+			case "startTime" -> "je.START_TIME " + sortOrder + " NULLS LAST, ji.JOB_INSTANCE_ID DESC";
+			case "endTime" -> "je.END_TIME " + sortOrder + " NULLS LAST, ji.JOB_INSTANCE_ID DESC";
+			default -> "ji.JOB_INSTANCE_ID DESC";
+		};
 	}
 
 	private List<JobParameter> fetchJobParameters(long jobExecutionId) {

@@ -1,6 +1,7 @@
 package am.ik.spring.batch.dashboard.job.web;
 
 import am.ik.spring.batch.dashboard.job.ApiErrorBuilder;
+import am.ik.spring.batch.dashboard.job.JobRunSummaryParams;
 import am.ik.spring.batch.dashboard.job.JobStatisticsMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -13,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class JobStatisticsController {
+
+	private static final int FIXED_WINDOW_DAYS = 60;
 
 	private final JobStatisticsMapper jobStatisticsMapper;
 
@@ -45,6 +48,11 @@ public class JobStatisticsController {
 	@GetMapping(path = "/api/statistics/recent_executions")
 	public ResponseEntity<?> getRecentExecutions(@RequestParam(defaultValue = "60") int days) {
 		return ResponseEntity.ok(this.jobStatisticsMapper.getJobExecutionStats(days));
+	}
+
+	@GetMapping(path = "/api/statistics/job_runs")
+	public ResponseEntity<?> getJobRunSummaries(JobRunSummaryParams params) {
+		return ResponseEntity.ok(this.jobStatisticsMapper.findJobRunSummaries(FIXED_WINDOW_DAYS, params));
 	}
 
 }

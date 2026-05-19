@@ -1,12 +1,17 @@
 // Statistics component
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Card } from '../components/Card'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { ErrorMessage } from '../components/ErrorMessage'
+import { Table, TableColumn } from '../components/Table'
 import { useJobStatistics } from '../hooks/useJobStatistics'
 import { useJobSpecificStatistics } from '../hooks/useJobSpecificStatistics'
 import { useRecentJobExecutions } from '../hooks/useRecentJobExecutions'
-import { JobStatus } from '../types/batch'
+import { DailyJobStats, JobStatus, RecentJobExecution } from '../types/batch'
+
+type RecentStatsSortBy = 'date' | 'completed' | 'failed' | 'abandoned' | 'total'
+type JobsSortBy = 'jobName' | 'executions'
 
 const Statistics = () => {
   // Get job name from URL if available (for specific job stats)
@@ -35,6 +40,11 @@ const Statistics = () => {
     isError: recentExecutionsError,
     error: recentExecutionsErrorData
   } = useRecentJobExecutions()
+
+  const [recentStatsSortBy, setRecentStatsSortBy] = useState<RecentStatsSortBy>('date')
+  const [recentStatsSortOrder, setRecentStatsSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [jobsSortBy, setJobsSortBy] = useState<JobsSortBy>('executions')
+  const [jobsSortOrder, setJobsSortOrder] = useState<'asc' | 'desc'>('desc')
   
   // Loading state
   const isLoading = globalStatsLoading || (jobName && specificStatsLoading) || (!jobName && recentExecutionsLoading)
@@ -129,6 +139,138 @@ const Statistics = () => {
       </Link>
     )
   }
+
+  const handleRecentStatsSortChange = (sortBy: RecentStatsSortBy) => {
+    setRecentStatsSortOrder((prevOrder) => (recentStatsSortBy === sortBy ? (prevOrder === 'asc' ? 'desc' : 'asc') : 'desc'))
+    setRecentStatsSortBy(sortBy)
+  }
+
+  const handleJobsSortChange = (sortBy: JobsSortBy) => {
+    setJobsSortOrder((prevOrder) => (jobsSortBy === sortBy ? (prevOrder === 'asc' ? 'desc' : 'asc') : 'desc'))
+    setJobsSortBy(sortBy)
+  }
+
+  const sortedRecentStats = [...(jobStatistics?.recentJobStatuses ?? [])].sort((a, b) => {
+    const aTotal = a.completed + a.failed + a.abandoned
+    const bTotal = b.completed + b.failed + b.abandoned
+
+    let comparison = 0
+    switch (recentStatsSortBy) {
+      case 'date':
+        comparison = new Date(a.date).getTime() - new Date(b.date).getTime()
+        break
+      case 'completed':
+        comparison = a.completed - b.completed
+        break
+      case 'failed':
+        comparison = a.failed - b.failed
+        break
+      case 'abandoned':
+        comparison = a.abandoned - b.abandoned
+        break
+      case 'total':
+        comparison = aTotal - bTotal
+        break
+    }
+
+    return recentStatsSortOrder === 'asc' ? comparison : -comparison
+  })
+
+  const sortedRecentJobs = [...(recentJobExecutions ?? [])].sort((a, b) => {
+    const comparison = jobsSortBy === 'jobName' ? a.jobName.localeCompare(b.jobName) : a.executions - b.executions
+
+    return jobsSortOrder === 'asc' ? comparison : -comparison
+  })
+
+  const recentStatsColumns: TableColumn<DailyJobStats>[] = [
+    {
+      key: 'date',
+      title: 'Date',
+      sortable: true,
+      render: (dailyStat) => formatDate(dailyStat.date)
+    },
+    {
+      key: 'completed',
+      title: 'Completed',
+      sortable: true,
+      render: (dailyStat) =>
+        renderLinkedCount(
+          dailyStat.completed,
+          dailyStat.date,
+          'COMPLETED',
+          'text-success-600 dark:text-success-400 font-medium',
+          'COMPLETED'
+        )
+    },
+    {
+      key: 'failed',
+      title: 'Failed',
+      sortable: true,
+      render: (dailyStat) =>
+        renderLinkedCount(
+          dailyStat.failed,
+          dailyStat.date,
+          'FAILED',
+          'text-danger-600 dark:text-danger-400 font-medium',
+          'FAILED'
+        )
+    },
+    {
+      key: 'abandoned',
+      title: 'Abandoned',
+      sortable: true,
+      render: (dailyStat) =>
+        renderLinkedCount(
+          dailyStat.abandoned,
+          dailyStat.date,
+          'ABANDONED',
+          'text-warning-600 dark:text-warning-400 font-medium',
+          'ABANDONED'
+        )
+    },
+    {
+      key: 'total',
+      title: 'Total',
+      sortable: true,
+      cellClassName: 'font-medium',
+      render: (dailyStat) => {
+        const total = dailyStat.completed + dailyStat.failed + dailyStat.abandoned
+        return renderLinkedCount(total, dailyStat.date, 'all', 'font-medium')
+      }
+    }
+  ]
+
+  const recentJobsColumns: TableColumn<RecentJobExecution>[] = [
+    {
+      key: 'jobName',
+      title: 'Job Name',
+      sortable: true,
+      render: (job) => job.jobName
+    },
+    {
+      key: 'executions',
+      title: 'Executions Count (60 days)',
+      sortable: true,
+      render: (job) => job.executions
+    },
+    {
+      key: 'actions',
+      title: 'Actions',
+      render: (job) => (
+        <div className="flex gap-2">
+          <Link to={`/statistics/${job.jobName}`} className="btn btn-outline py-1 px-2 text-xs">
+            Statistics
+          </Link>
+          <Link to={`/job-instances?jobName=${job.jobName}`} className="btn btn-outline py-1 px-2 text-xs">
+            Instances
+          </Link>
+          <Link to={`/job-executions?jobName=${job.jobName}`} className="btn btn-outline py-1 px-2 text-xs">
+            Executions
+          </Link>
+        </div>
+      )
+    }
+  ]
   
   return (
     <div className="space-y-6">
@@ -161,64 +303,24 @@ const Statistics = () => {
           </Card>
           
           <Card title="Recent Job Statistics">
-            <div className="table-container">
-              <table className="table">
-                <thead className="table-header">
-                  <tr>
-                    <th className="table-header-cell">Date</th>
-                    <th className="table-header-cell">Completed</th>
-                    <th className="table-header-cell">Failed</th>
-                    <th className="table-header-cell">Abandoned</th>
-                    <th className="table-header-cell">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="table-body">
-                  {jobStatistics.recentJobStatuses.map((dailyStat, index) => (
-                    <tr key={index} className="table-row">
-                      {(() => {
-                        const total = dailyStat.completed + dailyStat.failed + dailyStat.abandoned
+            <Table
+              columns={recentStatsColumns}
+              data={sortedRecentStats}
+              rowKey={(dailyStat) => dailyStat.date}
+              emptyMessage="No recent job statistics available."
+              sortBy={recentStatsSortBy}
+              sortOrder={recentStatsSortOrder}
+              onSortChange={(sortBy) => handleRecentStatsSortChange(sortBy as RecentStatsSortBy)}
+            />
+          </Card>
 
-                        return (
-                          <>
-                      <td className="table-cell">{formatDate(dailyStat.date)}</td>
-                      <td className="table-cell">
-                        {renderLinkedCount(
-                          dailyStat.completed,
-                          dailyStat.date,
-                          'COMPLETED',
-                          'text-success-600 dark:text-success-400 font-medium',
-                          'COMPLETED'
-                        )}
-                      </td>
-                      <td className="table-cell">
-                        {renderLinkedCount(
-                          dailyStat.failed,
-                          dailyStat.date,
-                          'FAILED',
-                          'text-danger-600 dark:text-danger-400 font-medium',
-                          'FAILED'
-                        )}
-                      </td>
-                      <td className="table-cell">
-                        {renderLinkedCount(
-                          dailyStat.abandoned,
-                          dailyStat.date,
-                          'ABANDONED',
-                          'text-warning-600 dark:text-warning-400 font-medium',
-                          'ABANDONED'
-                        )}
-                      </td>
-                      <td className="table-cell font-medium">
-                        {renderLinkedCount(total, dailyStat.date, 'all', 'font-medium')}
-                      </td>
-                          </>
-                        )
-                      })()}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <Card title="Job Runs Panel">
+            <p className="text-gray-700 dark:text-gray-300 mb-4">
+              View run counts, last execution ID, last status, and last start/end times for each job in the past 60 days.
+            </p>
+            <Link to="/statistics/job-runs" className="btn-primary">
+              Open Job Run Summaries
+            </Link>
           </Card>
         </>
       )}
@@ -312,53 +414,15 @@ const Statistics = () => {
       {/* Job list table (only on global stats page) */}
       {!jobName && jobStatistics && recentJobExecutions && (
         <Card title="Jobs">
-          <div className="table-container">
-            <table className="table">
-              <thead className="table-header">
-                <tr>
-                  <th className="table-header-cell">Job Name</th>
-                  <th className="table-header-cell">Executions Count (60 days)</th>
-                  <th className="table-header-cell">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="table-body">
-                {recentJobExecutions.length === 0 ? (
-                  <tr className="table-row">
-                    <td colSpan={3} className="table-cell text-center">No job execution data available for the last 60 days</td>
-                  </tr>
-                ) : (
-                  recentJobExecutions.map((job) => (
-                    <tr key={job.jobName} className="table-row">
-                      <td className="table-cell">{job.jobName}</td>
-                      <td className="table-cell">{job.executions}</td>
-                      <td className="table-cell">
-                        <div className="flex gap-2">
-                          <Link 
-                            to={`/statistics/${job.jobName}`}
-                            className="btn btn-outline py-1 px-2 text-xs"
-                          >
-                            Statistics
-                          </Link>
-                          <Link 
-                            to={`/job-instances?jobName=${job.jobName}`}
-                            className="btn btn-outline py-1 px-2 text-xs"
-                          >
-                            Instances
-                          </Link>
-                          <Link 
-                            to={`/job-executions?jobName=${job.jobName}`}
-                            className="btn btn-outline py-1 px-2 text-xs"
-                          >
-                            Executions
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <Table
+            columns={recentJobsColumns}
+            data={sortedRecentJobs}
+            rowKey={(job) => job.jobName}
+            emptyMessage="No job execution data available for the last 60 days"
+            sortBy={jobsSortBy}
+            sortOrder={jobsSortOrder}
+            onSortChange={(sortBy) => handleJobsSortChange(sortBy as JobsSortBy)}
+          />
         </Card>
       )}
     </div>

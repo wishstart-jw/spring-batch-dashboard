@@ -1,7 +1,8 @@
 // API fetcher utility function
 import { 
   JobInstancesParams, 
-  JobExecutionsParams 
+  JobExecutionsParams,
+  JobRunSummaryParams
 } from '../types/batch'
 import httpClient from './httpClient'
 
@@ -20,16 +21,31 @@ const buildQueryString = (params: Record<string, string | number | undefined>): 
   return query ? `?${query}` : ''
 }
 
+const toLegacySortParam = (
+  params: { sortBy?: string; sortOrder?: 'asc' | 'desc' } & Record<string, string | number | undefined>
+): Record<string, string | number | undefined> => {
+  const { sortBy, sortOrder, ...rest } = params
+
+  if (!sortBy) {
+    return rest
+  }
+
+  return {
+    ...rest,
+    sort: `${sortBy},${sortOrder ?? 'desc'}`
+  }
+}
+
 // API endpoints
 export const apiEndpoints = {
   // GET job instances with optional filtering
-  jobInstances: (params: JobInstancesParams = {}) => `/api/job_instances${buildQueryString(params)}`,
+  jobInstances: (params: JobInstancesParams = {}) => `/api/job_instances${buildQueryString(toLegacySortParam(params))}`,
   
   // GET job instance detail by ID
   jobInstanceDetail: (jobInstanceId: number) => `/api/job_instances/${jobInstanceId}`,
   
   // GET job executions with optional filtering
-  jobExecutions: (params: JobExecutionsParams = {}) => `/api/job_executions${buildQueryString(params)}`,
+  jobExecutions: (params: JobExecutionsParams = {}) => `/api/job_executions${buildQueryString(toLegacySortParam(params))}`,
   
   // GET job execution detail by ID
   jobExecutionDetail: (jobExecutionId: number) => `/api/job_executions/${jobExecutionId}`,
@@ -44,7 +60,10 @@ export const apiEndpoints = {
   jobSpecificStatistics: (jobName: string) => `/api/statistics/jobs/${jobName}`,
   
   // GET recent job executions statistics 
-  recentExecutions: (days?: number) => `/api/statistics/recent_executions${days ? buildQueryString({ days }) : ''}`
+  recentExecutions: (days?: number) => `/api/statistics/recent_executions${days ? buildQueryString({ days }) : ''}`,
+
+  // GET job run summaries (fixed 60-day window on backend)
+  jobRunSummaries: (params: JobRunSummaryParams = {}) => `/api/statistics/job_runs${buildQueryString(params)}`
 }
 
 // Mock API response handler - to simulate network delay - no longer used

@@ -5,11 +5,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class JobExecutionMapper {
+
+	private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of("jobExecutionId", "jobInstanceId", "jobName",
+			"createTime", "startTime", "endTime", "status");
 
 	private final JdbcClient jdbcClient;
 
@@ -21,6 +25,7 @@ public class JobExecutionMapper {
 		Integer page = Objects.requireNonNullElse(params.page(), 0);
 		Integer size = Objects.requireNonNullElse(params.size(), 20);
 		int offset = page * size;
+		String orderBy = buildOrderBy(params.sort());
 
 		// Build base SELECT with optional parameter JOIN
 		String parameterJoin = (params.parameterName() != null && params.parameterValue() != null) ? """
@@ -47,7 +52,7 @@ public class JobExecutionMapper {
 				        je.STATUS,
 				        je.EXIT_CODE,
 				        je.EXIT_MESSAGE,
-				        ROW_NUMBER() OVER (ORDER BY je.START_TIME DESC) as rn
+				        ROW_NUMBER() OVER (ORDER BY %s) as rn
 				    FROM
 				        BATCH_JOB_EXECUTION je
 				        JOIN
@@ -74,7 +79,7 @@ public class JobExecutionMapper {
 				    %s
 				) sub
 				WHERE rn > %d AND rn <= %d
-				""".formatted(parameterJoin, parameterWhere, offset, offset + size);
+				""".formatted(orderBy, parameterJoin, parameterWhere, offset, offset + size);
 
 		var sqlClient = this.jdbcClient.sql(query)
 			.param("jobName", params.jobName(), Types.VARCHAR)
@@ -157,6 +162,33 @@ public class JobExecutionMapper {
 			.totalElements(count)
 			.totalPages((int) (count / size) + 1)
 			.build();
+	}
+
+	private String buildOrderBy(String sort) {
+		String sortBy = "startTime";
+		String sortOrder = "DESC";
+		if (sort != null && !sort.isBlank()) {
+			String[] parts = sort.split(",", 2);
+			if (parts.length > 0 && ALLOWED_SORT_COLUMNS.contains(parts[0])) {
+				sortBy = parts[0];
+			}
+			if (parts.length > 1 && "asc".equalsIgnoreCase(parts[1])) {
+				sortOrder = "ASC";
+			}
+		}
+
+		return switch (sortBy) {
+			case "jobExecutionId" ->
+				"je.JOB_EXECUTION_ID " + sortOrder + ", je.START_TIME DESC, je.JOB_EXECUTION_ID DESC";
+			case "jobInstanceId" ->
+				"je.JOB_INSTANCE_ID " + sortOrder + ", je.START_TIME DESC, je.JOB_EXECUTION_ID DESC";
+			case "jobName" -> "ji.JOB_NAME " + sortOrder + ", je.START_TIME DESC, je.JOB_EXECUTION_ID DESC";
+			case "createTime" -> "je.CREATE_TIME " + sortOrder + ", je.START_TIME DESC, je.JOB_EXECUTION_ID DESC";
+			case "startTime" -> "je.START_TIME " + sortOrder + ", je.JOB_EXECUTION_ID DESC";
+			case "endTime" -> "je.END_TIME " + sortOrder + " NULLS LAST, je.START_TIME DESC, je.JOB_EXECUTION_ID DESC";
+			case "status" -> "je.STATUS " + sortOrder + ", je.START_TIME DESC, je.JOB_EXECUTION_ID DESC";
+			default -> "je.START_TIME DESC, je.JOB_EXECUTION_ID DESC";
+		};
 	}
 
 	private List<JobParameter> fetchJobParameters(long jobExecutionId) {

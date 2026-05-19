@@ -99,6 +99,15 @@ export interface RecentJobExecution {
   executions: number
 }
 
+export interface JobRunSummary {
+  jobName: string
+  executions: number
+  lastExecutionId: number | null
+  lastExecutionStatus: JobStatus | null
+  lastStartTime: string | null
+  lastEndTime: string | null
+}
+
 // Pagination types
 export interface PageResponse<T> {
   content: T[]
@@ -134,7 +143,8 @@ export interface JobInstancesParams {
   jobName?: string
   page?: number
   size?: number
-  sort?: string
+  sortBy?: 'jobInstanceId' | 'jobName' | 'startTime' | 'endTime' | 'status'
+  sortOrder?: 'asc' | 'desc'
   parameterName?: string
   parameterValue?: string
   [key: string]: string | number | undefined
@@ -147,9 +157,18 @@ export interface JobExecutionsParams {
   startDateTo?: string
   page?: number
   size?: number
-  sort?: string
+  sortBy?: 'jobExecutionId' | 'jobName' | 'jobInstanceId' | 'createTime' | 'startTime' | 'endTime' | 'status'
+  sortOrder?: 'asc' | 'desc'
   parameterName?: string
   parameterValue?: string
+  [key: string]: string | number | undefined
+}
+
+export interface JobRunSummaryParams {
+  page?: number
+  size?: number
+  sortBy?: 'jobName' | 'executions' | 'lastExecutionId' | 'lastExecutionStatus' | 'lastStartTime' | 'lastEndTime'
+  sortOrder?: 'asc' | 'desc'
   [key: string]: string | number | undefined
 }
 

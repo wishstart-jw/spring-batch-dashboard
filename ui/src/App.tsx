@@ -11,6 +11,7 @@ import JobExecutionsList from './pages/JobExecutionsList'
 import JobExecutionDetail from './pages/JobExecutionDetail'
 import StepExecutionDetail from './pages/StepExecutionDetail'
 import Statistics from './pages/Statistics'
+import JobRunSummaries from './pages/JobRunSummaries'
 import NotFound from './pages/NotFound'
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
           
           {/* Statistics */}
           <Route path="/statistics" element={<MainLayout><Statistics /></MainLayout>} />
+          <Route path="/statistics/job-runs" element={<MainLayout><JobRunSummaries /></MainLayout>} />
           <Route path="/statistics/:jobName" element={<MainLayout><Statistics /></MainLayout>} />
           
           {/* 404 Not Found */}

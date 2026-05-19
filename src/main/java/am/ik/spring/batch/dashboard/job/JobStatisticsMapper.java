@@ -5,11 +5,15 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class JobStatisticsMapper {
+
+	private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of("jobName", "executions", "lastExecutionId",
+			"lastExecutionStatus", "lastStartTime", "lastEndTime");
 
 	private final JdbcClient jdbcClient;
 
@@ -136,6 +140,101 @@ public class JobStatisticsMapper {
 				GROUP BY ji.JOB_NAME
 				ORDER BY executions DESC, jobName
 				""").param("days", days).query(JobExecutionStats.class).list();
+	}
+
+	public PageResponse<JobRunSummary> findJobRunSummaries(int days, JobRunSummaryParams params) {
+		Integer page = params.page() != null && params.page() >= 0 ? params.page() : 0;
+		Integer size = params.size() != null && params.size() > 0 ? params.size() : 20;
+		int offset = page * size;
+
+		String sortBy = ALLOWED_SORT_COLUMNS.contains(params.sortBy()) ? params.sortBy() : "lastStartTime";
+		String sortOrder = "asc".equalsIgnoreCase(params.sortOrder()) ? "ASC" : "DESC";
+		String orderBy = buildOrderBy(sortBy, sortOrder);
+
+		String query = """
+				SELECT
+				    jobName,
+				    executions,
+				    lastExecutionId,
+				    lastExecutionStatus,
+				    lastStartTime,
+				    lastEndTime
+				FROM (
+				    SELECT
+				        s.jobName,
+				        s.executions,
+				        s.lastExecutionId,
+				        s.lastExecutionStatus,
+				        s.lastStartTime,
+				        s.lastEndTime,
+				        ROW_NUMBER() OVER (ORDER BY %s) AS rn
+				    FROM (
+				        SELECT
+				            je_agg.JOB_NAME AS jobName,
+				            je_agg.executions AS executions,
+				            je_agg.lastExecutionId AS lastExecutionId,
+				            je_agg.lastExecutionStatus AS lastExecutionStatus,
+				            je_agg.lastStartTime AS lastStartTime,
+				            je_agg.lastEndTime AS lastEndTime
+				        FROM (
+				            SELECT
+				                ji.JOB_NAME,
+				                COUNT(*) AS executions,
+				                MAX(je.JOB_EXECUTION_ID) KEEP (DENSE_RANK LAST ORDER BY je.START_TIME, je.JOB_EXECUTION_ID) AS lastExecutionId,
+				                MAX(je.STATUS) KEEP (DENSE_RANK LAST ORDER BY je.START_TIME, je.JOB_EXECUTION_ID) AS lastExecutionStatus,
+				                MAX(je.START_TIME) AS lastStartTime,
+				                MAX(je.END_TIME) KEEP (DENSE_RANK LAST ORDER BY je.START_TIME, je.JOB_EXECUTION_ID) AS lastEndTime
+				            FROM BATCH_JOB_INSTANCE ji
+				            JOIN BATCH_JOB_EXECUTION je ON ji.JOB_INSTANCE_ID = je.JOB_INSTANCE_ID
+				            WHERE je.START_TIME >= TRUNC(SYSDATE) - :days
+				            GROUP BY ji.JOB_NAME
+				        ) je_agg
+				    ) s
+				) numbered
+				WHERE rn > %d AND rn <= %d
+				"""
+			.formatted(orderBy, offset, offset + size);
+
+		List<JobRunSummary> content = this.jdbcClient.sql(query).param("days", days).query((rs, rowNum) -> {
+			String status = rs.getString("lastExecutionStatus");
+			JobStatus lastExecutionStatus = status != null ? JobStatus.valueOf(status) : null;
+			return new JobRunSummary(rs.getString("jobName"), rs.getLong("executions"),
+					rs.getObject("lastExecutionId", Long.class), lastExecutionStatus,
+					rs.getObject("lastStartTime", LocalDateTime.class),
+					rs.getObject("lastEndTime", LocalDateTime.class));
+		}).list();
+
+		long count = this.jdbcClient.sql("""
+				SELECT COUNT(*)
+				FROM (
+				    SELECT ji.JOB_NAME
+				    FROM BATCH_JOB_INSTANCE ji
+				    JOIN BATCH_JOB_EXECUTION je ON ji.JOB_INSTANCE_ID = je.JOB_INSTANCE_ID
+				    WHERE je.START_TIME >= TRUNC(SYSDATE) - :days
+				    GROUP BY ji.JOB_NAME
+				)
+				""").param("days", days).query(Long.class).single();
+
+		return PageResponseBuilder.<JobRunSummary>pageResponse()
+			.content(content)
+			.page(page)
+			.size(size)
+			.totalElements(count)
+			.totalPages((int) (count / size) + 1)
+			.build();
+	}
+
+	private String buildOrderBy(String sortBy, String sortOrder) {
+		return switch (sortBy) {
+			case "jobName" -> "s.jobName " + sortOrder + ", s.lastStartTime DESC, s.jobName ASC";
+			case "executions" -> "s.executions " + sortOrder + ", s.lastStartTime DESC, s.jobName ASC";
+			case "lastExecutionId" ->
+				"s.lastExecutionId " + sortOrder + " NULLS LAST, s.lastStartTime DESC NULLS LAST, s.jobName ASC";
+			case "lastExecutionStatus" ->
+				"s.lastExecutionStatus " + sortOrder + " NULLS LAST, s.lastStartTime DESC NULLS LAST, s.jobName ASC";
+			case "lastEndTime" -> "s.lastEndTime " + sortOrder + " NULLS LAST, s.lastStartTime DESC, s.jobName ASC";
+			default -> "s.lastStartTime " + sortOrder + " NULLS LAST, s.jobName ASC";
+		};
 	}
 
 }
