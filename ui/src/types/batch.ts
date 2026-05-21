@@ -12,6 +12,7 @@ export interface JobExecutionSummary {
   jobExecutionId: number
   startTime: string
   endTime?: string
+  durationSeconds?: number
   status: JobStatus
 }
 
@@ -27,6 +28,7 @@ export interface JobExecution {
   createTime: string
   startTime: string
   endTime?: string
+  durationSeconds?: number
   status: JobStatus
   exitCode: string
   exitMessage?: string
@@ -55,6 +57,7 @@ export interface StepExecutionSummary {
   filterCount: number
   startTime: string
   endTime?: string
+  durationSeconds?: number
 }
 
 export interface StepExecutionDetail extends StepExecutionSummary {
@@ -106,6 +109,7 @@ export interface JobRunSummary {
   lastExecutionStatus: JobStatus | null
   lastStartTime: string | null
   lastEndTime: string | null
+  lastDurationSeconds: number | null
 }
 
 // Pagination types
@@ -143,7 +147,7 @@ export interface JobInstancesParams {
   jobName?: string
   page?: number
   size?: number
-  sortBy?: 'jobInstanceId' | 'jobName' | 'startTime' | 'endTime' | 'status'
+  sortBy?: 'jobInstanceId' | 'jobName' | 'startTime' | 'endTime' | 'durationSeconds' | 'status'
   sortOrder?: 'asc' | 'desc'
   parameterName?: string
   parameterValue?: string
@@ -157,7 +161,7 @@ export interface JobExecutionsParams {
   startDateTo?: string
   page?: number
   size?: number
-  sortBy?: 'jobExecutionId' | 'jobName' | 'jobInstanceId' | 'createTime' | 'startTime' | 'endTime' | 'status'
+  sortBy?: 'jobExecutionId' | 'jobName' | 'jobInstanceId' | 'createTime' | 'startTime' | 'endTime' | 'durationSeconds' | 'status'
   sortOrder?: 'asc' | 'desc'
   parameterName?: string
   parameterValue?: string
@@ -167,7 +171,7 @@ export interface JobExecutionsParams {
 export interface JobRunSummaryParams {
   page?: number
   size?: number
-  sortBy?: 'jobName' | 'executions' | 'lastExecutionId' | 'lastExecutionStatus' | 'lastStartTime' | 'lastEndTime'
+  sortBy?: 'jobName' | 'executions' | 'lastExecutionId' | 'lastExecutionStatus' | 'lastStartTime' | 'lastEndTime' | 'lastDurationSeconds'
   sortOrder?: 'asc' | 'desc'
   [key: string]: string | number | undefined
 }

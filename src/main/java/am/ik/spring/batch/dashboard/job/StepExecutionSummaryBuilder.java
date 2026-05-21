@@ -22,6 +22,9 @@ public class StepExecutionSummaryBuilder {
 	@Nullable
 	private LocalDateTime endTime;
 
+	@Nullable
+	private Long durationSeconds;
+
 	public static StepExecutionSummaryBuilder stepExecutionSummary() {
 		return new StepExecutionSummaryBuilder();
 	}
@@ -66,9 +69,14 @@ public class StepExecutionSummaryBuilder {
 		return this;
 	}
 
+	public StepExecutionSummaryBuilder durationSeconds(@Nullable Long durationSeconds) {
+		this.durationSeconds = durationSeconds;
+		return this;
+	}
+
 	public StepExecutionSummary build() {
 		return new StepExecutionSummary(this.stepExecutionId, this.stepName, this.status, this.readCount,
-				this.writeCount, this.filterCount, this.startTime, this.endTime);
+				this.writeCount, this.filterCount, this.startTime, this.endTime, this.durationSeconds);
 	}
 
 }

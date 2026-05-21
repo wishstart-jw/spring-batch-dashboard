@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 public class JobInstanceMapper {
 
 	private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of("jobInstanceId", "jobName", "status", "startTime",
-			"endTime");
+			"endTime", "durationSeconds");
 
 	private final JdbcClient jdbcClient;
 
@@ -39,6 +39,10 @@ public class JobInstanceMapper {
 				        je.JOB_EXECUTION_ID,
 				        je.START_TIME,
 				        je.END_TIME,
+				        CASE
+				            WHEN je.START_TIME IS NOT NULL AND je.END_TIME IS NOT NULL
+				                THEN ROUND((CAST(je.END_TIME AS DATE) - CAST(je.START_TIME AS DATE)) * 86400)
+				        END AS DURATION_SECONDS,
 				        je.STATUS,
 				        ROW_NUMBER() OVER (ORDER BY %s) as rn
 				    FROM
@@ -80,6 +84,7 @@ public class JobInstanceMapper {
 							.jobExecutionId(rs.getLong("JOB_EXECUTION_ID"))
 							.startTime(rs.getObject("START_TIME", LocalDateTime.class))
 							.endTime(rs.getObject("END_TIME", LocalDateTime.class))
+							.durationSeconds(rs.getObject("DURATION_SECONDS", Long.class))
 							.status(JobStatus.valueOf(statusStr))
 							.build();
 
@@ -131,6 +136,9 @@ public class JobInstanceMapper {
 			case "status" -> "je.STATUS " + sortOrder + " NULLS LAST, ji.JOB_INSTANCE_ID DESC";
 			case "startTime" -> "je.START_TIME " + sortOrder + " NULLS LAST, ji.JOB_INSTANCE_ID DESC";
 			case "endTime" -> "je.END_TIME " + sortOrder + " NULLS LAST, ji.JOB_INSTANCE_ID DESC";
+			case "durationSeconds" -> "CASE WHEN je.START_TIME IS NOT NULL AND je.END_TIME IS NOT NULL "
+					+ "THEN ROUND((CAST(je.END_TIME AS DATE) - CAST(je.START_TIME AS DATE)) * 86400) END " + sortOrder
+					+ " NULLS LAST, ji.JOB_INSTANCE_ID DESC";
 			default -> "ji.JOB_INSTANCE_ID DESC";
 		};
 	}
@@ -170,6 +178,10 @@ public class JobInstanceMapper {
 				    je.CREATE_TIME,
 				    je.START_TIME,
 				    je.END_TIME,
+				    CASE
+				        WHEN je.START_TIME IS NOT NULL AND je.END_TIME IS NOT NULL
+				            THEN ROUND((CAST(je.END_TIME AS DATE) - CAST(je.START_TIME AS DATE)) * 86400)
+				    END AS DURATION_SECONDS,
 				    je.STATUS,
 				    je.EXIT_CODE,
 				    je.EXIT_MESSAGE,
@@ -192,6 +204,7 @@ public class JobInstanceMapper {
 					.jobExecutionId(rs.getLong("JOB_EXECUTION_ID"))
 					.startTime(rs.getObject("START_TIME", LocalDateTime.class))
 					.endTime(rs.getObject("END_TIME", LocalDateTime.class))
+					.durationSeconds(rs.getObject("DURATION_SECONDS", Long.class))
 					.status(JobStatus.valueOf(rs.getString("STATUS")))
 					.build())
 				.executions(List.of())
@@ -206,6 +219,10 @@ public class JobInstanceMapper {
 						    je.CREATE_TIME,
 						    je.START_TIME,
 						    je.END_TIME,
+						    CASE
+						        WHEN je.START_TIME IS NOT NULL AND je.END_TIME IS NOT NULL
+						            THEN ROUND((CAST(je.END_TIME AS DATE) - CAST(je.START_TIME AS DATE)) * 86400)
+						    END AS DURATION_SECONDS,
 						    je.STATUS,
 						    je.EXIT_CODE,
 						    je.EXIT_MESSAGE
@@ -227,6 +244,7 @@ public class JobInstanceMapper {
 						.createTime(rs.getObject("CREATE_TIME", LocalDateTime.class))
 						.startTime(rs.getObject("START_TIME", LocalDateTime.class))
 						.endTime(rs.getObject("END_TIME", LocalDateTime.class))
+						.durationSeconds(rs.getObject("DURATION_SECONDS", Long.class))
 						.status(JobStatus.valueOf(rs.getString("STATUS")))
 						.exitCode(rs.getString("EXIT_CODE"))
 						.exitMessage(rs.getString("EXIT_MESSAGE"))

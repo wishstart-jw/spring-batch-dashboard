@@ -12,6 +12,9 @@ public class JobExecutionSummaryBuilder {
 	@Nullable
 	private LocalDateTime endTime;
 
+	@Nullable
+	private Long durationSeconds;
+
 	private JobStatus status;
 
 	public static JobExecutionSummaryBuilder jobExecutionSummary() {
@@ -33,13 +36,19 @@ public class JobExecutionSummaryBuilder {
 		return this;
 	}
 
+	public JobExecutionSummaryBuilder durationSeconds(@Nullable Long durationSeconds) {
+		this.durationSeconds = durationSeconds;
+		return this;
+	}
+
 	public JobExecutionSummaryBuilder status(JobStatus status) {
 		this.status = status;
 		return this;
 	}
 
 	public JobExecutionSummary build() {
-		return new JobExecutionSummary(this.jobExecutionId, this.startTime, this.endTime, this.status);
+		return new JobExecutionSummary(this.jobExecutionId, this.startTime, this.endTime, this.durationSeconds,
+				this.status);
 	}
 
 }

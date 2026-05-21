@@ -4,5 +4,6 @@ import java.time.LocalDateTime;
 import org.springframework.lang.Nullable;
 
 public record StepExecutionSummary(long stepExecutionId, String stepName, StepStatus status, long readCount,
-		long writeCount, long filterCount, LocalDateTime startTime, @Nullable LocalDateTime endTime) {
+		long writeCount, long filterCount, LocalDateTime startTime, @Nullable LocalDateTime endTime,
+		@Nullable Long durationSeconds) {
 }

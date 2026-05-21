@@ -9,6 +9,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { Table, TableColumn } from '../components/Table'
 import { useJobRunSummaries } from '../hooks/useJobRunSummaries'
 import { JobRunSummary, JobRunSummaryParams } from '../types/batch'
+import { formatDuration } from '../utils/duration'
 
 type SortBy = NonNullable<JobRunSummaryParams['sortBy']>
 type SortOrder = NonNullable<JobRunSummaryParams['sortOrder']>
@@ -113,6 +114,12 @@ const JobRunSummaries = () => {
         ) : (
           <span className="text-gray-500 dark:text-gray-400">-</span>
         )
+    },
+    {
+      key: 'lastDurationSeconds',
+      title: 'Last Duration',
+      sortable: true,
+      render: (job) => formatDuration(job.lastDurationSeconds, job.lastStartTime, job.lastEndTime)
     },
     {
       key: 'actions',

@@ -10,6 +10,7 @@ import { Table, TableColumn } from '../components/Table'
 import { useJobExecutions } from '../hooks/useJobExecutions'
 import { JobExecution, JobExecutionsParams, JobStatus } from '../types/batch'
 import { useSearchState } from "../context/SearchStateContext"
+import { formatDuration } from '../utils/duration'
 
 const JOB_STATUSES: JobStatus[] = [
   'COMPLETED',
@@ -66,7 +67,7 @@ const JobExecutionsList = () => {
       ? (urlStatus as JobStatus)
       : undefined;
   const normalizedUrlSortBy =
-    urlSortBy && ['jobExecutionId', 'jobName', 'jobInstanceId', 'createTime', 'startTime', 'endTime', 'status'].includes(urlSortBy)
+    urlSortBy && ['jobExecutionId', 'jobName', 'jobInstanceId', 'createTime', 'startTime', 'endTime', 'durationSeconds', 'status'].includes(urlSortBy)
       ? (urlSortBy as SortBy)
       : undefined;
   const normalizedUrlSortOrder =
@@ -271,6 +272,12 @@ const JobExecutionsList = () => {
         ) : (
           <span className="text-gray-500 dark:text-gray-400">-</span>
         )
+    },
+    {
+      key: 'durationSeconds',
+      title: 'Duration',
+      sortable: true,
+      render: (execution) => formatDuration(execution.durationSeconds, execution.startTime, execution.endTime)
     },
     {
       key: 'status',

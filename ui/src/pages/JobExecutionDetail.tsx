@@ -1,12 +1,27 @@
 // No longer need useState since we don't have tabs anymore
+import { useMemo, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Card } from '../components/Card'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { StatusBadge } from '../components/StatusBadge'
 import { DateTime } from '../components/DateTime'
+import { Table, TableColumn } from '../components/Table'
 import { useJobExecutionDetail } from '../hooks/useJobExecutionDetail'
-import { parseISO, differenceInSeconds } from 'date-fns'
+import { StepExecutionSummary } from '../types/batch'
+import { formatDuration, resolveDurationSeconds } from '../utils/duration'
+
+type SortOrder = 'asc' | 'desc'
+type StepSortBy =
+  | 'stepExecutionId'
+  | 'stepName'
+  | 'startTime'
+  | 'endTime'
+  | 'durationSeconds'
+  | 'status'
+  | 'readCount'
+  | 'filterCount'
+  | 'writeCount'
 
 const JobExecutionDetail = () => {
   // No need for tabs anymore as we only have parameters
@@ -23,6 +38,166 @@ const JobExecutionDetail = () => {
     isError,
     error
   } = useJobExecutionDetail(id)
+
+  const [stepsSortBy, setStepsSortBy] = useState<StepSortBy>('stepExecutionId')
+  const [stepsSortOrder, setStepsSortOrder] = useState<SortOrder>('desc')
+
+  const handleStepsSortChange = (sortBy: StepSortBy) => {
+    setStepsSortOrder((prevSortOrder) => {
+      if (stepsSortBy !== sortBy) {
+        return 'desc'
+      }
+
+      return prevSortOrder === 'asc' ? 'desc' : 'asc'
+    })
+    setStepsSortBy(sortBy)
+  }
+
+  const sortedSteps = useMemo(() => {
+    const compareNullableDate = (left?: string, right?: string) => {
+      if (!left && !right) {
+        return 0
+      }
+      if (!left) {
+        return 1
+      }
+      if (!right) {
+        return -1
+      }
+
+      return new Date(left).getTime() - new Date(right).getTime()
+    }
+
+    const compareValues = (left: string | number, right: string | number) => {
+      if (typeof left === 'number' && typeof right === 'number') {
+        return left - right
+      }
+
+      return String(left).localeCompare(String(right))
+    }
+
+    const steps = jobExecutionDetail?.steps ?? []
+
+    return [...steps].sort((left, right) => {
+      let comparison = 0
+
+      switch (stepsSortBy) {
+        case 'stepExecutionId':
+          comparison = compareValues(left.stepExecutionId, right.stepExecutionId)
+          break
+        case 'stepName':
+          comparison = compareValues(left.stepName, right.stepName)
+          break
+        case 'startTime':
+          comparison = compareValues(left.startTime, right.startTime)
+          break
+        case 'endTime':
+          comparison = compareNullableDate(left.endTime, right.endTime)
+          break
+        case 'durationSeconds':
+          comparison = compareValues(
+            resolveDurationSeconds(left.durationSeconds, left.startTime, left.endTime) ?? -1,
+            resolveDurationSeconds(right.durationSeconds, right.startTime, right.endTime) ?? -1
+          )
+          break
+        case 'status':
+          comparison = compareValues(left.status, right.status)
+          break
+        case 'readCount':
+          comparison = compareValues(left.readCount, right.readCount)
+          break
+        case 'filterCount':
+          comparison = compareValues(left.filterCount, right.filterCount)
+          break
+        case 'writeCount':
+          comparison = compareValues(left.writeCount, right.writeCount)
+          break
+      }
+
+      return stepsSortOrder === 'asc' ? comparison : -comparison
+    })
+  }, [jobExecutionDetail?.steps, stepsSortBy, stepsSortOrder])
+
+  const stepColumns: TableColumn<StepExecutionSummary>[] = [
+    {
+      key: 'stepExecutionId',
+      title: 'ID',
+      sortable: true,
+      render: (step) => (
+        <Link
+          to={`/step-executions/${step.stepExecutionId}`}
+          className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
+        >
+          {step.stepExecutionId}
+        </Link>
+      )
+    },
+    {
+      key: 'stepName',
+      title: 'Step Name',
+      sortable: true,
+      render: (step) => step.stepName
+    },
+    {
+      key: 'startTime',
+      title: 'Start Time',
+      sortable: true,
+      render: (step) => <DateTime date={step.startTime} />
+    },
+    {
+      key: 'endTime',
+      title: 'End Time',
+      sortable: true,
+      render: (step) =>
+        step.endTime ? (
+          <DateTime date={step.endTime} />
+        ) : (
+          <span className="text-gray-500 dark:text-gray-400">-</span>
+        )
+    },
+    {
+      key: 'durationSeconds',
+      title: 'Duration',
+      sortable: true,
+      render: (step) => formatDuration(step.durationSeconds, step.startTime, step.endTime)
+    },
+    {
+      key: 'status',
+      title: 'Status',
+      sortable: true,
+      render: (step) => <StatusBadge status={step.status} />
+    },
+    {
+      key: 'readCount',
+      title: 'Read',
+      sortable: true,
+      render: (step) => step.readCount
+    },
+    {
+      key: 'filterCount',
+      title: 'Filter',
+      sortable: true,
+      render: (step) => step.filterCount
+    },
+    {
+      key: 'writeCount',
+      title: 'Write',
+      sortable: true,
+      render: (step) => step.writeCount
+    },
+    {
+      key: 'actions',
+      title: 'Actions',
+      render: (step) => (
+        <Link
+          to={`/step-executions/${step.stepExecutionId}`}
+          className="btn btn-outline py-1 px-2 text-xs"
+        >
+          Details
+        </Link>
+      )
+    }
+  ]
   
   // Loading state
   if (isLoading) {
@@ -40,24 +215,12 @@ const JobExecutionDetail = () => {
   
   // Calculate duration in seconds
   const getDuration = () => {
-    if (!jobExecutionDetail.startTime) return 'N/A'
-    
-    const startTime = parseISO(jobExecutionDetail.startTime)
-    const endTime = jobExecutionDetail.endTime 
-      ? parseISO(jobExecutionDetail.endTime)
-      : new Date()
-    
-    const durationSeconds = differenceInSeconds(endTime, startTime)
-    
-    // Format duration
-    const hours = Math.floor(durationSeconds / 3600)
-    const minutes = Math.floor((durationSeconds % 3600) / 60)
-    const seconds = durationSeconds % 60
-    
-    // Add leading zeros
-    const formatTime = (value: number) => value.toString().padStart(2, '0')
-    
-    return `${hours ? hours + 'h ' : ''}${formatTime(minutes)}m ${formatTime(seconds)}s`
+    return formatDuration(
+      jobExecutionDetail.durationSeconds,
+      jobExecutionDetail.startTime,
+      jobExecutionDetail.endTime,
+      'N/A'
+    )
   }
   
   return (
@@ -178,71 +341,15 @@ const JobExecutionDetail = () => {
       
       {/* Steps Table */}
       <Card title="Step Executions">
-        <div className="table-container">
-          <table className="table">
-            <thead className="table-header">
-              <tr>
-                <th className="table-header-cell">ID</th>
-                <th className="table-header-cell">Step Name</th>
-                <th className="table-header-cell">Start Time</th>
-                <th className="table-header-cell">End Time</th>
-                <th className="table-header-cell">Status</th>
-                <th className="table-header-cell">Read</th>
-                <th className="table-header-cell">Filter</th>
-                <th className="table-header-cell">Write</th>
-                <th className="table-header-cell">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="table-body">
-              {jobExecutionDetail.steps.map((step) => (
-                <tr key={step.stepExecutionId} className="table-row">
-                  <td className="table-cell">
-                    <Link 
-                      to={`/step-executions/${step.stepExecutionId}`}
-                      className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
-                    >
-                      {step.stepExecutionId}
-                    </Link>
-                  </td>
-                  <td className="table-cell">{step.stepName}</td>
-                  <td className="table-cell">
-                    <DateTime date={step.startTime} />
-                  </td>
-                  <td className="table-cell">
-                    {step.endTime ? (
-                      <DateTime date={step.endTime} />
-                    ) : (
-                      <span className="text-gray-500 dark:text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="table-cell">
-                    <StatusBadge status={step.status} />
-                  </td>
-                  <td className="table-cell">{step.readCount}</td>
-                  <td className="table-cell">{step.filterCount}</td>
-                  <td className="table-cell">{step.writeCount}</td>
-                  <td className="table-cell">
-                    <Link 
-                      to={`/step-executions/${step.stepExecutionId}`}
-                      className="btn btn-outline py-1 px-2 text-xs"
-                    >
-                      Details
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              
-              {/* No steps message */}
-              {jobExecutionDetail.steps.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="table-cell text-center py-8 text-gray-500 dark:text-gray-400">
-                    No step executions found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          columns={stepColumns}
+          data={sortedSteps}
+          rowKey={(step) => step.stepExecutionId}
+          emptyMessage="No step executions found."
+          sortBy={stepsSortBy}
+          sortOrder={stepsSortOrder}
+          onSortChange={(sortBy) => handleStepsSortChange(sortBy as StepSortBy)}
+        />
       </Card>
       
       <div className="flex gap-4">

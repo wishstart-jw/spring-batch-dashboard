@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 public class JobStatisticsMapper {
 
 	private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of("jobName", "executions", "lastExecutionId",
-			"lastExecutionStatus", "lastStartTime", "lastEndTime");
+			"lastExecutionStatus", "lastStartTime", "lastEndTime", "lastDurationSeconds");
 
 	private final JdbcClient jdbcClient;
 
@@ -158,7 +158,8 @@ public class JobStatisticsMapper {
 				    lastExecutionId,
 				    lastExecutionStatus,
 				    lastStartTime,
-				    lastEndTime
+				    lastEndTime,
+				    lastDurationSeconds
 				FROM (
 				    SELECT
 				        s.jobName,
@@ -167,6 +168,7 @@ public class JobStatisticsMapper {
 				        s.lastExecutionStatus,
 				        s.lastStartTime,
 				        s.lastEndTime,
+				        s.lastDurationSeconds,
 				        ROW_NUMBER() OVER (ORDER BY %s) AS rn
 				    FROM (
 				        SELECT
@@ -175,7 +177,8 @@ public class JobStatisticsMapper {
 				            je_agg.lastExecutionId AS lastExecutionId,
 				            je_agg.lastExecutionStatus AS lastExecutionStatus,
 				            je_agg.lastStartTime AS lastStartTime,
-				            je_agg.lastEndTime AS lastEndTime
+				            je_agg.lastEndTime AS lastEndTime,
+				            je_agg.lastDurationSeconds AS lastDurationSeconds
 				        FROM (
 				            SELECT
 				                ji.JOB_NAME,
@@ -183,7 +186,11 @@ public class JobStatisticsMapper {
 				                MAX(je.JOB_EXECUTION_ID) KEEP (DENSE_RANK LAST ORDER BY je.START_TIME, je.JOB_EXECUTION_ID) AS lastExecutionId,
 				                MAX(je.STATUS) KEEP (DENSE_RANK LAST ORDER BY je.START_TIME, je.JOB_EXECUTION_ID) AS lastExecutionStatus,
 				                MAX(je.START_TIME) AS lastStartTime,
-				                MAX(je.END_TIME) KEEP (DENSE_RANK LAST ORDER BY je.START_TIME, je.JOB_EXECUTION_ID) AS lastEndTime
+				                MAX(je.END_TIME) KEEP (DENSE_RANK LAST ORDER BY je.START_TIME, je.JOB_EXECUTION_ID) AS lastEndTime,
+				                MAX(CASE
+				                    WHEN je.START_TIME IS NOT NULL AND je.END_TIME IS NOT NULL
+				                        THEN ROUND((CAST(je.END_TIME AS DATE) - CAST(je.START_TIME AS DATE)) * 86400)
+				                END) KEEP (DENSE_RANK LAST ORDER BY je.START_TIME, je.JOB_EXECUTION_ID) AS lastDurationSeconds
 				            FROM BATCH_JOB_INSTANCE ji
 				            JOIN BATCH_JOB_EXECUTION je ON ji.JOB_INSTANCE_ID = je.JOB_INSTANCE_ID
 				            WHERE je.START_TIME >= TRUNC(SYSDATE) - :days
@@ -201,7 +208,7 @@ public class JobStatisticsMapper {
 			return new JobRunSummary(rs.getString("jobName"), rs.getLong("executions"),
 					rs.getObject("lastExecutionId", Long.class), lastExecutionStatus,
 					rs.getObject("lastStartTime", LocalDateTime.class),
-					rs.getObject("lastEndTime", LocalDateTime.class));
+					rs.getObject("lastEndTime", LocalDateTime.class), rs.getObject("lastDurationSeconds", Long.class));
 		}).list();
 
 		long count = this.jdbcClient.sql("""
@@ -233,6 +240,8 @@ public class JobStatisticsMapper {
 			case "lastExecutionStatus" ->
 				"s.lastExecutionStatus " + sortOrder + " NULLS LAST, s.lastStartTime DESC NULLS LAST, s.jobName ASC";
 			case "lastEndTime" -> "s.lastEndTime " + sortOrder + " NULLS LAST, s.lastStartTime DESC, s.jobName ASC";
+			case "lastDurationSeconds" ->
+				"s.lastDurationSeconds " + sortOrder + " NULLS LAST, s.lastStartTime DESC, s.jobName ASC";
 			default -> "s.lastStartTime " + sortOrder + " NULLS LAST, s.jobName ASC";
 		};
 	}

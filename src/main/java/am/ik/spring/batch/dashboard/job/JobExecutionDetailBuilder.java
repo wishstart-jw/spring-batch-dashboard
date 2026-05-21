@@ -19,6 +19,9 @@ public class JobExecutionDetailBuilder {
 	@Nullable
 	private LocalDateTime endTime;
 
+	@Nullable
+	private Long durationSeconds;
+
 	private JobStatus status;
 
 	private String exitCode;
@@ -44,6 +47,7 @@ public class JobExecutionDetailBuilder {
 		b.createTime = src.createTime();
 		b.startTime = src.startTime();
 		b.endTime = src.endTime();
+		b.durationSeconds = src.durationSeconds();
 		b.status = src.status();
 		b.exitCode = src.exitCode();
 		b.exitMessage = src.exitMessage();
@@ -83,6 +87,11 @@ public class JobExecutionDetailBuilder {
 		return this;
 	}
 
+	public JobExecutionDetailBuilder durationSeconds(@Nullable Long durationSeconds) {
+		this.durationSeconds = durationSeconds;
+		return this;
+	}
+
 	public JobExecutionDetailBuilder status(JobStatus status) {
 		this.status = status;
 		return this;
@@ -115,8 +124,8 @@ public class JobExecutionDetailBuilder {
 
 	public JobExecutionDetail build() {
 		return new JobExecutionDetail(this.jobExecutionId, this.jobInstanceId, this.jobName, this.createTime,
-				this.startTime, this.endTime, this.status, this.exitCode, this.exitMessage, this.lastUpdated,
-				this.parameters, this.steps);
+				this.startTime, this.endTime, this.durationSeconds, this.status, this.exitCode, this.exitMessage,
+				this.lastUpdated, this.parameters, this.steps);
 	}
 
 }

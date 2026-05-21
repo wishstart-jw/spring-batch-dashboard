@@ -10,6 +10,7 @@ import { Table, TableColumn } from '../components/Table'
 import { useJobInstances } from '../hooks/useJobInstances'
 import { JobInstance, JobInstancesParams } from '../types/batch'
 import { useSearchState } from '../context/SearchStateContext'
+import { formatDuration } from '../utils/duration'
 
 type SortBy = NonNullable<JobInstancesParams['sortBy']>
 type SortOrder = NonNullable<JobInstancesParams['sortOrder']>
@@ -36,7 +37,7 @@ const JobInstancesList = () => {
   const urlSortBy = searchParams.get('sortBy')
   const urlSortOrder = searchParams.get('sortOrder')
   const normalizedUrlSortBy =
-    urlSortBy && ['jobInstanceId', 'jobName', 'startTime', 'endTime', 'status'].includes(urlSortBy)
+    urlSortBy && ['jobInstanceId', 'jobName', 'startTime', 'endTime', 'durationSeconds', 'status'].includes(urlSortBy)
       ? (urlSortBy as SortBy)
       : undefined
   const normalizedUrlSortOrder =
@@ -191,6 +192,17 @@ const JobInstancesList = () => {
           <DateTime date={instance.latestExecution.endTime} />
         ) : (
           <span className="text-gray-500 dark:text-gray-400">-</span>
+        )
+    },
+    {
+      key: 'durationSeconds',
+      title: 'Duration',
+      sortable: true,
+      render: (instance) =>
+        formatDuration(
+          instance.latestExecution?.durationSeconds,
+          instance.latestExecution?.startTime,
+          instance.latestExecution?.endTime
         )
     },
     {

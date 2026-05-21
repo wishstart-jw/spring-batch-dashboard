@@ -5,6 +5,6 @@ import java.util.List;
 import org.springframework.lang.Nullable;
 
 public record JobExecution(long jobExecutionId, long jobInstanceId, String jobName, LocalDateTime createTime,
-		LocalDateTime startTime, @Nullable LocalDateTime endTime, JobStatus status, String exitCode,
-		@Nullable String exitMessage, @Nullable List<JobParameter> parameters) {
+		LocalDateTime startTime, @Nullable LocalDateTime endTime, @Nullable Long durationSeconds, JobStatus status,
+		String exitCode, @Nullable String exitMessage, @Nullable List<JobParameter> parameters) {
 }
